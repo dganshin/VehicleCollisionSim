@@ -46,8 +46,10 @@ public class SimpleCarController : MonoBehaviour
     public float inactivePushAssistSpeed = 1.8f; // 非激活静止车辆在被撞时附加的启动速度，帮助把碰撞力转成可见位移。
     public float inactivePushAssistMaxTargetSpeed = 4f; // 非激活车辆低于该速度时才使用启动辅助，避免高速碰撞被过度放大。
     public float inactivePushAssistImpulseThreshold = 75f; // 碰撞水平冲量低于该阈值时，不额外放大，避免轻微接触就乱动。
-    public float inactivePushAssistTuningDuration = 0.35f; // 非主控车被撞后，临时进入低阻力推车窗口的持续时间。
-    public float contactPushVelocityStep = 0.24f; // 当前控制车低速顶住目标时，每个物理步额外补给目标车的启动速度。
+    public float inactivePushAssistTuningDuration = 0.35f; // 旧参数保留给 UI；当前主线不再依赖“低阻力窗口”来让车被撞动。
+    public float contactImpulseTransferScale = 1.35f; // 前后向碰撞时，将纵向碰撞冲量换算成目标车纵向速度变化的倍率。
+    public float contactPushVelocityStep = 0.28f; // 当前控制车贴住静止目标持续给油时，每个物理步补给目标车的纵向速度步进。
+    public float contactStaticPushSpeedThreshold = 1.25f; // 两车都接近静止时，才启用贴住推车步进，避免中高速碰撞被额外放大。
     public float contactPushSpeedThreshold = 6f; // 只有在较低碰撞速度下才启用接触推车辅助。
     public float contactPushAlignmentThreshold = 0.35f; // 接触点与车辆前后方向的对齐阈值，避免侧擦时误判为推车。
     public float bumperZoneThreshold = 1.35f; // 接触点在车体前后向上的占比阈值，只有明显处于前后保险杠区域才触发推车辅助。
@@ -64,7 +66,6 @@ public class SimpleCarController : MonoBehaviour
     private PhysicsMaterial runtimeBodyMaterial;
     private bool startPoseAdjusted;
     private Vector3 pendingInactiveVelocityChange;
-    private float inactivePushAssistTimer;
     private float reverseLockTimer;
     private int lastThrottleDirection;
 
@@ -124,11 +125,6 @@ public class SimpleCarController : MonoBehaviour
             return;
         }
 
-        if (inactivePushAssistTimer > 0f)
-        {
-            inactivePushAssistTimer = Mathf.Max(0f, inactivePushAssistTimer - Time.fixedDeltaTime);
-        }
-
         UpdateMotionState();
         bool useWheelDrive = HasWheelDrive();
         if (!useWheelDrive)
@@ -137,7 +133,7 @@ public class SimpleCarController : MonoBehaviour
             ApplyLateralGrip();
         }
 
-        bool applyInactiveTuning = !isControlled && (useInactiveCollisionTuning || inactivePushAssistTimer > 0f);
+        bool applyInactiveTuning = !isControlled && useInactiveCollisionTuning;
 
         if (!isControlled)
         {
@@ -260,7 +256,7 @@ public class SimpleCarController : MonoBehaviour
         {
             CurrentThrottleInput = 0f;
             CurrentSteerInput = 0f;
-            bool applyInactiveTuning = useInactiveCollisionTuning || inactivePushAssistTimer > 0f;
+            bool applyInactiveTuning = useInactiveCollisionTuning;
             SetLinearDamping(applyInactiveTuning ? inactiveLinearDamping : normalDamping);
             ApplyWheelRollingResistance(applyInactiveTuning);
             ApplyWheelSurfaceGrip(applyInactiveTuning);
@@ -303,7 +299,7 @@ public class SimpleCarController : MonoBehaviour
         }
 
         ApplyRuntimeColliderMaterial();
-        bool applyInactiveTuning = !isControlled && (useInactiveCollisionTuning || inactivePushAssistTimer > 0f);
+        bool applyInactiveTuning = !isControlled && useInactiveCollisionTuning;
         ApplyWheelRollingResistance(applyInactiveTuning);
         ApplyWheelSurfaceGrip(applyInactiveTuning);
 
@@ -325,7 +321,6 @@ public class SimpleCarController : MonoBehaviour
         }
 
         pendingInactiveVelocityChange += pushDirection.normalized * pushSpeed;
-        inactivePushAssistTimer = Mathf.Max(inactivePushAssistTimer, inactivePushAssistTuningDuration);
     }
 
     public void CopyTuningFrom(SimpleCarController source)
@@ -382,7 +377,9 @@ public class SimpleCarController : MonoBehaviour
         inactivePushAssistMaxTargetSpeed = source.inactivePushAssistMaxTargetSpeed;
         inactivePushAssistImpulseThreshold = source.inactivePushAssistImpulseThreshold;
         inactivePushAssistTuningDuration = source.inactivePushAssistTuningDuration;
+        contactImpulseTransferScale = source.contactImpulseTransferScale;
         contactPushVelocityStep = source.contactPushVelocityStep;
+        contactStaticPushSpeedThreshold = source.contactStaticPushSpeedThreshold;
         contactPushSpeedThreshold = source.contactPushSpeedThreshold;
         contactPushAlignmentThreshold = source.contactPushAlignmentThreshold;
         bumperZoneThreshold = source.bumperZoneThreshold;
@@ -681,33 +678,12 @@ public class SimpleCarController : MonoBehaviour
 
     private void OnCollisionStay(Collision collision)
     {
-        if (rb == null)
+        if (rb == null || !isControlled)
         {
             return;
         }
 
-        if (isControlled)
-        {
-            ApplyControlledContactPush(collision);
-            return;
-        }
-
-        Vector3 planarImpulse = Vector3.ProjectOnPlane(collision.impulse, Vector3.up);
-        float planarImpulseMagnitude = planarImpulse.magnitude;
-        float horizontalSpeed = Vector3.ProjectOnPlane(GetLinearVelocity(), Vector3.up).magnitude;
-
-        if (horizontalSpeed > inactivePushAssistMaxTargetSpeed || planarImpulseMagnitude < inactivePushAssistImpulseThreshold)
-        {
-            return;
-        }
-
-        if (!TryGetLongitudinalPushDirection(collision, rb, out Vector3 pushDirection))
-        {
-            return;
-        }
-
-        float pushSpeed = Mathf.Min(inactivePushAssistSpeed, planarImpulseMagnitude / Mathf.Max(rb.mass, 0.01f));
-        QueueInactivePush(pushDirection, pushSpeed);
+        ApplyControlledContactPush(collision);
     }
 
     private void ApplyControlledContactPush(Collision collision)
@@ -751,14 +727,36 @@ public class SimpleCarController : MonoBehaviour
             return;
         }
 
+        Vector3 planarImpulse = Vector3.ProjectOnPlane(collision.impulse, Vector3.up);
+        float longitudinalImpulse = Mathf.Abs(Vector3.Dot(planarImpulse, targetPushDirection));
+        float impulsePushSpeed = 0f;
+        if (longitudinalImpulse >= inactivePushAssistImpulseThreshold)
+        {
+            impulsePushSpeed = Mathf.Min(
+                inactivePushAssistSpeed,
+                (longitudinalImpulse / Mathf.Max(otherRb.mass, 0.01f)) * contactImpulseTransferScale);
+        }
+
+        float sustainedPushSpeed = 0f;
+        if (ownSpeed < contactStaticPushSpeedThreshold && otherSpeed < contactStaticPushSpeedThreshold)
+        {
+            sustainedPushSpeed = Mathf.Abs(CurrentThrottleInput) * contactPushVelocityStep;
+        }
+
+        float pushSpeed = Mathf.Max(impulsePushSpeed, sustainedPushSpeed);
+        if (pushSpeed <= 0.0001f)
+        {
+            return;
+        }
+
         SimpleCarController otherController = otherRb.GetComponent<SimpleCarController>();
         if (otherController != null)
         {
-            otherController.QueueInactivePush(targetPushDirection, contactPushVelocityStep);
+            otherController.QueueInactivePush(targetPushDirection, pushSpeed);
         }
         else
         {
-            otherRb.AddForce(targetPushDirection * contactPushVelocityStep, ForceMode.VelocityChange);
+            otherRb.AddForce(targetPushDirection * pushSpeed, ForceMode.VelocityChange);
             otherRb.WakeUp();
         }
     }

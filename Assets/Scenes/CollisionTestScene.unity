@@ -523,7 +523,9 @@ MonoBehaviour:
   inactivePushAssistMaxTargetSpeed: 4
   inactivePushAssistImpulseThreshold: 75
   inactivePushAssistTuningDuration: 0.35
-  contactPushVelocityStep: 0.24
+  contactImpulseTransferScale: 1.35
+  contactPushVelocityStep: 0.28
+  contactStaticPushSpeedThreshold: 1.25
   contactPushSpeedThreshold: 6
   contactPushAlignmentThreshold: 0.35
   bumperZoneThreshold: 1.35

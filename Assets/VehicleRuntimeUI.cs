@@ -239,18 +239,19 @@ public class VehicleRuntimeUI : MonoBehaviour
     private void DrawCollisionSection(SimpleCarController vehicle)
     {
         GUILayout.Space(10f);
-        GUILayout.Label("碰撞展示专用参数", sectionStyle);
+        GUILayout.Label("低速碰撞/推车参数", sectionStyle);
 
         bool changed = false;
         changed |= DrawSlider(ref vehicle.inactiveLinearDamping, "非激活车线性阻尼", 0f, 0.5f, "");
         changed |= DrawSlider(ref vehicle.inactiveWheelDampingRate, "非激活车轮滚动阻力", 0f, 0.5f, "");
         changed |= DrawSlider(ref vehicle.inactiveForwardFrictionStiffness, "非激活车前后抓地力", 0.01f, 1f, "x");
         changed |= DrawSlider(ref vehicle.inactiveSidewaysFrictionStiffness, "非激活车侧向抓地力", 0.01f, 1f, "x");
-        changed |= DrawSlider(ref vehicle.inactivePushAssistSpeed, "静止车启动辅助速度", 0f, 2f, "m/s");
-        changed |= DrawSlider(ref vehicle.inactivePushAssistMaxTargetSpeed, "启动辅助最高目标速度", 0.5f, 8f, "m/s");
-        changed |= DrawSlider(ref vehicle.inactivePushAssistImpulseThreshold, "启动辅助冲量阈值", 0f, 800f, "Ns");
-        changed |= DrawSlider(ref vehicle.inactivePushAssistTuningDuration, "推车低阻力窗口", 0f, 1f, "s");
-        changed |= DrawSlider(ref vehicle.contactPushVelocityStep, "低速顶车辅助步进", 0f, 0.3f, "m/s");
+        changed |= DrawSlider(ref vehicle.inactivePushAssistSpeed, "纵向推车单步上限", 0f, 3f, "m/s");
+        changed |= DrawSlider(ref vehicle.inactivePushAssistMaxTargetSpeed, "推车目标速度上限", 0.5f, 8f, "m/s");
+        changed |= DrawSlider(ref vehicle.inactivePushAssistImpulseThreshold, "纵向冲量触发阈值", 0f, 800f, "Ns");
+        changed |= DrawSlider(ref vehicle.contactImpulseTransferScale, "冲量转速度倍率", 0.2f, 3f, "x");
+        changed |= DrawSlider(ref vehicle.contactPushVelocityStep, "静止贴车推送步进", 0f, 0.6f, "m/s");
+        changed |= DrawSlider(ref vehicle.contactStaticPushSpeedThreshold, "静止贴车判定阈值", 0.2f, 3f, "m/s");
         changed |= DrawSlider(ref vehicle.contactPushSpeedThreshold, "低速顶车速度阈值", 0.5f, 10f, "m/s");
         changed |= DrawSlider(ref vehicle.contactPushAlignmentThreshold, "顶车方向对齐阈值", 0.1f, 0.95f, "");
         changed |= DrawSlider(ref vehicle.bumperZoneThreshold, "保险杠区域阈值", 1f, 3f, "x");
