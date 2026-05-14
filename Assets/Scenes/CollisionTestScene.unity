@@ -507,8 +507,11 @@ MonoBehaviour:
   reverseAccelerationScale: 0.4
   brakeTorqueScale: 160
   coastBrakeTorque: 55
+  coastBrakeStartSpeed: 1.5
+  coastBrakeFullSpeed: 6
   coastingWheelSyncBrakeTorque: 220
-  coastingWheelSyncRpmTolerance: 90
+  coastingWheelSyncRpmTolerance: 25
+  coastingWheelSyncMinSpeed: 1.2
   lowSpeedCoastThreshold: 2.2
   lowSpeedCoastBrakeTorque: 0
   directionChangeSpeedThreshold: 0.35

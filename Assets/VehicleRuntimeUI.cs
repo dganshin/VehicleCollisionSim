@@ -175,8 +175,11 @@ public class VehicleRuntimeUI : MonoBehaviour
         changed |= DrawSlider(ref vehicle.reverseAccelerationScale, "倒车驱动力倍率", 0.2f, 1f, "x");
         changed |= DrawSlider(ref vehicle.brakeTorqueScale, "刹车扭矩倍率", 50f, 500f, "x");
         changed |= DrawSlider(ref vehicle.coastBrakeTorque, "空挡轮上阻力", 0f, 200f, "Nm");
+        changed |= DrawSlider(ref vehicle.coastBrakeStartSpeed, "空挡阻力起始速度", 0.2f, 4f, "m/s");
+        changed |= DrawSlider(ref vehicle.coastBrakeFullSpeed, "空挡阻力满值速度", 1f, 12f, "m/s");
         changed |= DrawSlider(ref vehicle.coastingWheelSyncBrakeTorque, "空挡轮速同步刹车", 0f, 3000f, "Nm");
         changed |= DrawSlider(ref vehicle.coastingWheelSyncRpmTolerance, "轮速同步容差", 0f, 120f, "rpm");
+        changed |= DrawSlider(ref vehicle.coastingWheelSyncMinSpeed, "轮速同步最低速度", 0.2f, 4f, "m/s");
         changed |= DrawSlider(ref vehicle.directionChangeSpeedThreshold, "换向速度阈值", 0.05f, 5f, "m/s");
         changed |= DrawSlider(ref vehicle.directionChangeBrakeTorque, "换向刹车扭矩", 200f, 6000f, "Nm");
         changed |= DrawSlider(ref vehicle.stationaryReverseRpmThreshold, "静止换向轮速阈值", 20f, 400f, "rpm");
