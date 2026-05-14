@@ -177,6 +177,8 @@ public class VehicleRuntimeUI : MonoBehaviour
         changed |= DrawSlider(ref vehicle.coastBrakeTorque, "空挡轮上阻力", 0f, 200f, "Nm");
         changed |= DrawSlider(ref vehicle.coastBrakeStartSpeed, "空挡阻力起始速度", 0.2f, 4f, "m/s");
         changed |= DrawSlider(ref vehicle.coastBrakeFullSpeed, "空挡阻力满值速度", 1f, 12f, "m/s");
+        changed |= DrawSlider(ref vehicle.coastingMotorDragTorque, "松油反向拖拽扭矩", 0f, 300f, "Nm");
+        changed |= DrawSlider(ref vehicle.coastingMotorDragRpmFactor, "松油拖拽扭矩比例", 0f, 2f, "");
         changed |= DrawSlider(ref vehicle.coastingWheelSyncBrakeTorque, "空挡轮速同步刹车", 0f, 3000f, "Nm");
         changed |= DrawSlider(ref vehicle.coastingWheelSyncRpmTolerance, "轮速同步容差", 0f, 120f, "rpm");
         changed |= DrawSlider(ref vehicle.coastingWheelSyncMinSpeed, "轮速同步最低速度", 0.2f, 4f, "m/s");

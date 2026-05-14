@@ -18,7 +18,7 @@ public class SimpleCarController : MonoBehaviour
     public bool disableChildWheelColliders = false; // 旧调试开关；当前方案保持 WheelCollider 启用。
     public bool applyRuntimeRigidbodySettings = true; // 是否在运行时覆盖部分 Rigidbody 阻尼和插值设置。
     public float drivingLinearDamping = 0.015f; // 持续给油时使用的线性阻尼，应尽量小，避免前进动力被阻尼吃掉。
-    public float runtimeLinearDamping = 0.05f; // 松开油门后的基础空气阻力；保持较小，但要足够避免车辆长时间自己继续跑。
+    public float runtimeLinearDamping = 0.06f; // 松开油门后的基础空气阻力；保持较小，但要足够避免车辆长时间自己继续跑。
     public float runtimeAngularDamping = 5f; // 车辆旋转时的基础角阻尼，用于减少晃动和过度旋转。
     public bool useInactiveCollisionTuning = false; // 是否对非当前控制车辆启用更低阻力碰撞展示参数；当前默认关闭，避免切车后手感不一致。
     public float inactiveLinearDamping = 0.02f; // 非激活车辆使用的较低线性阻尼，兼顾被撞动和不过分打滑。
@@ -29,12 +29,14 @@ public class SimpleCarController : MonoBehaviour
     public float wheelTorqueScale = 1.25f; // 轮驱动模式下的扭矩倍率，避免把 Inspector 参数再额外放大很多倍。
     public float reverseAccelerationScale = 0.4f; // 倒车驱动力倍率，通常应明显低于前进驱动力。
     public float brakeTorqueScale = 160f; // 刹车扭矩倍率，用来控制按下 Space 后的实际制动强度。
-    public float coastBrakeTorque = 35f; // 松开油门后的温和轮上阻力，主要用于中高速滑行，不用于低速急停。
+    public float coastBrakeTorque = 0f; // 旧参数保留；当前主线不再依赖轮上刹车模拟滑行，避免低速阶段突兀重刹。
     public float coastBrakeStartSpeed = 2.5f; // 低于该速度时不再施加空挡轮上阻力，避免 1 m/s 左右突然像重刹。
     public float coastBrakeFullSpeed = 10f; // 达到该速度后，空挡轮上阻力增长到设定上限。
-    public float coastingWheelSyncBrakeTorque = 320f; // 松开刹车且无油门时，用来把轮速拉回车速的同步刹车扭矩。
+    public float coastingMotorDragTorque = 140f; // 松开油门后用于抵消残余轮速的反向驱动扭矩上限，避免车辆继续自己加速。
+    public float coastingMotorDragRpmFactor = 0.55f; // 松油后反向驱动扭矩随轮速增长的比例，轮速越高，卸载越快。
+    public float coastingWheelSyncBrakeTorque = 120f; // 松开刹车且无油门时，用来把轮速拉回车速的同步刹车扭矩。
     public float coastingWheelSyncRpmTolerance = 25f; // 轮速与车速对应转速相差超过该阈值时，认为存在明显“轮速滞后/超前”。
-    public float coastingWheelSyncMinSpeed = 2f; // 只有速度高于该阈值时才启用轮速同步，避免低速阶段像突然补刹。
+    public float coastingWheelSyncMinSpeed = 4f; // 只有速度高于该阈值时才启用轮速同步，避免低速阶段像突然补刹。
     public float lowSpeedCoastThreshold = 2.2f; // 低于该速度后开始补一点尾速收口，避免低速滑太久停不下来。
     public float lowSpeedCoastBrakeTorque = 0f; // 低速空挡尾速收口使用的小刹车扭矩；默认关闭，避免再次出现“低速突然一脚刹车”。
     public float directionChangeSpeedThreshold = 0.35f; // 当前进/后退方向与输入相反且速度高于该阈值时，先刹停再反向驱动。
@@ -368,6 +370,8 @@ public class SimpleCarController : MonoBehaviour
         coastBrakeTorque = source.coastBrakeTorque;
         coastBrakeStartSpeed = source.coastBrakeStartSpeed;
         coastBrakeFullSpeed = source.coastBrakeFullSpeed;
+        coastingMotorDragTorque = source.coastingMotorDragTorque;
+        coastingMotorDragRpmFactor = source.coastingMotorDragRpmFactor;
         coastingWheelSyncBrakeTorque = source.coastingWheelSyncBrakeTorque;
         coastingWheelSyncRpmTolerance = source.coastingWheelSyncRpmTolerance;
         coastingWheelSyncMinSpeed = source.coastingWheelSyncMinSpeed;
@@ -504,6 +508,7 @@ public class SimpleCarController : MonoBehaviour
         float motorTorque = CurrentThrottleInput * motorScale * wheelTorqueScale * directionScale;
         float brakeTorque = brakePressed ? brakeDamping * brakeTorqueScale : 0f;
         float averageDriveWheelRpm = GetAverageDriveWheelRpm();
+        bool isCoasting = !brakePressed && Mathf.Abs(CurrentThrottleInput) < 0.01f;
         bool isChangingDirection =
             Mathf.Abs(CurrentThrottleInput) > 0.01f &&
             absForwardSpeed > directionChangeSpeedThreshold &&
@@ -531,7 +536,13 @@ public class SimpleCarController : MonoBehaviour
             brakeTorque = Mathf.Max(brakeTorque, stationaryReverseBrakeTorque);
         }
 
-        if (!brakePressed && Mathf.Abs(CurrentThrottleInput) < 0.01f && absForwardSpeed > coastBrakeStartSpeed)
+        if (isCoasting && Mathf.Abs(averageDriveWheelRpm) > 1f)
+        {
+            float dragTorque = Mathf.Min(coastingMotorDragTorque, Mathf.Abs(averageDriveWheelRpm) * coastingMotorDragRpmFactor);
+            motorTorque = -Mathf.Sign(averageDriveWheelRpm) * dragTorque;
+        }
+
+        if (isCoasting && absForwardSpeed > coastBrakeStartSpeed)
         {
             // 空挡阻力随速度逐步增强：低速不生硬，高速也不会像完全无阻力一样继续蹿。
             float coastFactor = Mathf.InverseLerp(coastBrakeStartSpeed, Mathf.Max(coastBrakeFullSpeed, coastBrakeStartSpeed + 0.01f), absForwardSpeed);
@@ -551,7 +562,7 @@ public class SimpleCarController : MonoBehaviour
             brakeTorque = Mathf.Max(brakeTorque, syncBrakeTorque);
         }
 
-        if (!brakePressed && Mathf.Abs(CurrentThrottleInput) < 0.01f && absForwardSpeed < lowSpeedCoastThreshold)
+        if (isCoasting && absForwardSpeed < lowSpeedCoastThreshold)
         {
             float tailBrakeFactor = 1f - Mathf.Clamp01(absForwardSpeed / Mathf.Max(lowSpeedCoastThreshold, 0.01f));
             brakeTorque = Mathf.Max(brakeTorque, lowSpeedCoastBrakeTorque * tailBrakeFactor);
