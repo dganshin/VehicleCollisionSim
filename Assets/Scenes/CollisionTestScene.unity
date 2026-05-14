@@ -494,18 +494,21 @@ MonoBehaviour:
   centerOfMassOffset: {x: 0, y: -0.4, z: 0}
   disableChildWheelColliders: 0
   applyRuntimeRigidbodySettings: 1
-  runtimeLinearDamping: 0.16
+  drivingLinearDamping: 0.015
+  runtimeLinearDamping: 0.035
   runtimeAngularDamping: 5
   useInactiveCollisionTuning: 0
   inactiveLinearDamping: 0.02
+  wheelDampingRateScale: 0.35
   inactiveWheelDampingRate: 0.01
   inactiveForwardFrictionStiffness: 0.08
   inactiveSidewaysFrictionStiffness: 0.35
   wheelTorqueScale: 1.25
-  reverseAccelerationScale: 0.55
+  reverseAccelerationScale: 0.4
   brakeTorqueScale: 160
-  coastingWheelSyncBrakeTorque: 900
-  coastingWheelSyncRpmTolerance: 35
+  coastBrakeTorque: 55
+  coastingWheelSyncBrakeTorque: 220
+  coastingWheelSyncRpmTolerance: 90
   lowSpeedCoastThreshold: 2.2
   lowSpeedCoastBrakeTorque: 0
   directionChangeSpeedThreshold: 0.35

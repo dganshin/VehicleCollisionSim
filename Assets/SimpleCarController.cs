@@ -17,19 +17,21 @@ public class SimpleCarController : MonoBehaviour
     public Vector3 centerOfMassOffset = new Vector3(0f, -0.4f, 0f); // 局部重心偏移，用来降低重心、减少翻车倾向。
     public bool disableChildWheelColliders = false; // 旧调试开关；当前方案保持 WheelCollider 启用。
     public bool applyRuntimeRigidbodySettings = true; // 是否在运行时覆盖部分 Rigidbody 阻尼和插值设置。
-    public float drivingLinearDamping = 0.06f; // 持续给油时使用的较低线性阻尼，避免车辆加速发软。
-    public float runtimeLinearDamping = 0.16f; // 松开油门后车辆的基础速度衰减。
+    public float drivingLinearDamping = 0.015f; // 持续给油时使用的线性阻尼，应尽量小，避免前进动力被阻尼吃掉。
+    public float runtimeLinearDamping = 0.035f; // 松开油门后的基础空气阻力；过大时会表现成“像一直轻踩刹车”。
     public float runtimeAngularDamping = 5f; // 车辆旋转时的基础角阻尼，用于减少晃动和过度旋转。
     public bool useInactiveCollisionTuning = false; // 是否对非当前控制车辆启用更低阻力碰撞展示参数；当前默认关闭，避免切车后手感不一致。
     public float inactiveLinearDamping = 0.02f; // 非激活车辆使用的较低线性阻尼，兼顾被撞动和不过分打滑。
+    public float wheelDampingRateScale = 0.35f; // 当前主线车辆的轮子滚动阻力缩放，降低后可减少“松油马上被拖死”和碰撞后过快耗能。
     public float inactiveWheelDampingRate = 0.01f; // 非激活车辆轮子的滚动阻力，适度降低，避免像手刹锁死。
     public float inactiveForwardFrictionStiffness = 0.08f; // 非激活车辆前后向轮胎抓地力倍率，低于默认值但不至于完全打滑。
     public float inactiveSidewaysFrictionStiffness = 0.35f; // 非激活车辆侧向轮胎抓地力倍率，保留明显侧向阻力，避免侧门轻易被推走。
     public float wheelTorqueScale = 1.25f; // 轮驱动模式下的扭矩倍率，避免把 Inspector 参数再额外放大很多倍。
-    public float reverseAccelerationScale = 0.55f; // 倒车驱动力倍率，通常应低于前进驱动力。
+    public float reverseAccelerationScale = 0.4f; // 倒车驱动力倍率，通常应明显低于前进驱动力。
     public float brakeTorqueScale = 160f; // 刹车扭矩倍率，用来控制按下 Space 后的实际制动强度。
-    public float coastingWheelSyncBrakeTorque = 900f; // 松开刹车且无油门时，用来把轮速拉回车速的同步刹车扭矩。
-    public float coastingWheelSyncRpmTolerance = 35f; // 轮速与车速对应转速相差超过该阈值时，认为存在明显“轮速滞后/超前”。
+    public float coastBrakeTorque = 55f; // 松开油门后的恒定轻微轮上阻力，用来替代“大线性阻尼”，让低速也能自然停下。
+    public float coastingWheelSyncBrakeTorque = 220f; // 松开刹车且无油门时，用来把轮速拉回车速的同步刹车扭矩。
+    public float coastingWheelSyncRpmTolerance = 90f; // 轮速与车速对应转速相差超过该阈值时，认为存在明显“轮速滞后/超前”。
     public float lowSpeedCoastThreshold = 2.2f; // 低于该速度后开始补一点尾速收口，避免低速滑太久停不下来。
     public float lowSpeedCoastBrakeTorque = 0f; // 低速空挡尾速收口使用的小刹车扭矩；默认关闭，避免再次出现“低速突然一脚刹车”。
     public float directionChangeSpeedThreshold = 0.35f; // 当前进/后退方向与输入相反且速度高于该阈值时，先刹停再反向驱动。
@@ -352,6 +354,7 @@ public class SimpleCarController : MonoBehaviour
         runtimeLinearDamping = source.runtimeLinearDamping;
         runtimeAngularDamping = source.runtimeAngularDamping;
         useInactiveCollisionTuning = source.useInactiveCollisionTuning;
+        wheelDampingRateScale = source.wheelDampingRateScale;
         inactiveLinearDamping = source.inactiveLinearDamping;
         inactiveWheelDampingRate = source.inactiveWheelDampingRate;
         inactiveForwardFrictionStiffness = source.inactiveForwardFrictionStiffness;
@@ -359,6 +362,7 @@ public class SimpleCarController : MonoBehaviour
         wheelTorqueScale = source.wheelTorqueScale;
         reverseAccelerationScale = source.reverseAccelerationScale;
         brakeTorqueScale = source.brakeTorqueScale;
+        coastBrakeTorque = source.coastBrakeTorque;
         coastingWheelSyncBrakeTorque = source.coastingWheelSyncBrakeTorque;
         coastingWheelSyncRpmTolerance = source.coastingWheelSyncRpmTolerance;
         lowSpeedCoastThreshold = source.lowSpeedCoastThreshold;
@@ -489,7 +493,7 @@ public class SimpleCarController : MonoBehaviour
         float speedFactor = Mathf.InverseLerp(minTurnSpeed, maxSpeed, absForwardSpeed);
         // 这里不是做真实转向几何，而是课程级的简化前轮转向：低速角度更大，高速自动收一点。
         float steerAngle = turnAcceleration * Mathf.Lerp(8f, 4f * highSpeedTurnFactor, speedFactor) * CurrentSteerInput;
-        float motorScale = horizontalSpeed < 1.5f ? startBoostAcceleration : motorAcceleration;
+        float motorScale = horizontalSpeed < 2.5f ? startBoostAcceleration : motorAcceleration;
         float directionScale = CurrentThrottleInput < 0f ? reverseAccelerationScale : 1f;
         float motorTorque = CurrentThrottleInput * motorScale * wheelTorqueScale * directionScale;
         float brakeTorque = brakePressed ? brakeDamping * brakeTorqueScale : 0f;
@@ -519,6 +523,12 @@ public class SimpleCarController : MonoBehaviour
             // 车身几乎没动，但轮子还在按旧方向空转时，先刹掉轮速，再允许反向给扭矩。
             motorTorque = 0f;
             brakeTorque = Mathf.Max(brakeTorque, stationaryReverseBrakeTorque);
+        }
+
+        if (!brakePressed && Mathf.Abs(CurrentThrottleInput) < 0.01f && absForwardSpeed > 0.05f)
+        {
+            // 松油后给一个恒定的轻微轮上阻力，避免高速像刹车、低速又拖尾过长。
+            brakeTorque = Mathf.Max(brakeTorque, coastBrakeTorque);
         }
 
         if (holdBrakeAtIdle && Mathf.Abs(CurrentThrottleInput) < 0.01f && absForwardSpeed < minTurnSpeed)
@@ -850,7 +860,9 @@ public class SimpleCarController : MonoBehaviour
                 continue;
             }
 
-            cachedWheelColliders[i].wheelDampingRate = inactive ? inactiveWheelDampingRate : defaultWheelDampingRates[i];
+            cachedWheelColliders[i].wheelDampingRate = inactive
+                ? inactiveWheelDampingRate
+                : defaultWheelDampingRates[i] * wheelDampingRateScale;
         }
     }
 

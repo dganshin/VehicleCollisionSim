@@ -174,6 +174,7 @@ public class VehicleRuntimeUI : MonoBehaviour
         changed |= DrawSlider(ref vehicle.wheelTorqueScale, "轮驱动扭矩倍率", 0.2f, 4f, "x");
         changed |= DrawSlider(ref vehicle.reverseAccelerationScale, "倒车驱动力倍率", 0.2f, 1f, "x");
         changed |= DrawSlider(ref vehicle.brakeTorqueScale, "刹车扭矩倍率", 50f, 500f, "x");
+        changed |= DrawSlider(ref vehicle.coastBrakeTorque, "空挡轮上阻力", 0f, 200f, "Nm");
         changed |= DrawSlider(ref vehicle.coastingWheelSyncBrakeTorque, "空挡轮速同步刹车", 0f, 3000f, "Nm");
         changed |= DrawSlider(ref vehicle.coastingWheelSyncRpmTolerance, "轮速同步容差", 0f, 120f, "rpm");
         changed |= DrawSlider(ref vehicle.directionChangeSpeedThreshold, "换向速度阈值", 0.05f, 5f, "m/s");
@@ -243,6 +244,7 @@ public class VehicleRuntimeUI : MonoBehaviour
 
         bool changed = false;
         changed |= DrawSlider(ref vehicle.inactiveLinearDamping, "非激活车线性阻尼", 0f, 0.5f, "");
+        changed |= DrawSlider(ref vehicle.wheelDampingRateScale, "正常轮滚阻倍率", 0.05f, 1f, "x");
         changed |= DrawSlider(ref vehicle.inactiveWheelDampingRate, "非激活车轮滚动阻力", 0f, 0.5f, "");
         changed |= DrawSlider(ref vehicle.inactiveForwardFrictionStiffness, "非激活车前后抓地力", 0.01f, 1f, "x");
         changed |= DrawSlider(ref vehicle.inactiveSidewaysFrictionStiffness, "非激活车侧向抓地力", 0.01f, 1f, "x");
