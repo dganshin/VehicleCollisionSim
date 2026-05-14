@@ -18,7 +18,7 @@ public class SimpleCarController : MonoBehaviour
     public bool disableChildWheelColliders = false; // 旧调试开关；当前方案保持 WheelCollider 启用。
     public bool applyRuntimeRigidbodySettings = true; // 是否在运行时覆盖部分 Rigidbody 阻尼和插值设置。
     public float drivingLinearDamping = 0.015f; // 持续给油时使用的线性阻尼，应尽量小，避免前进动力被阻尼吃掉。
-    public float runtimeLinearDamping = 0.035f; // 松开油门后的基础空气阻力；过大时会表现成“像一直轻踩刹车”。
+    public float runtimeLinearDamping = 0.05f; // 松开油门后的基础空气阻力；保持较小，但要足够避免车辆长时间自己继续跑。
     public float runtimeAngularDamping = 5f; // 车辆旋转时的基础角阻尼，用于减少晃动和过度旋转。
     public bool useInactiveCollisionTuning = false; // 是否对非当前控制车辆启用更低阻力碰撞展示参数；当前默认关闭，避免切车后手感不一致。
     public float inactiveLinearDamping = 0.02f; // 非激活车辆使用的较低线性阻尼，兼顾被撞动和不过分打滑。
@@ -29,12 +29,12 @@ public class SimpleCarController : MonoBehaviour
     public float wheelTorqueScale = 1.25f; // 轮驱动模式下的扭矩倍率，避免把 Inspector 参数再额外放大很多倍。
     public float reverseAccelerationScale = 0.4f; // 倒车驱动力倍率，通常应明显低于前进驱动力。
     public float brakeTorqueScale = 160f; // 刹车扭矩倍率，用来控制按下 Space 后的实际制动强度。
-    public float coastBrakeTorque = 55f; // 松开油门后的恒定轻微轮上阻力，用来替代“大线性阻尼”，让低速也能自然停下。
-    public float coastBrakeStartSpeed = 1.5f; // 低于该速度时不再施加空挡轮上阻力，避免 1 m/s 左右突然像重刹。
-    public float coastBrakeFullSpeed = 6f; // 达到该速度后，空挡轮上阻力增长到设定上限。
-    public float coastingWheelSyncBrakeTorque = 220f; // 松开刹车且无油门时，用来把轮速拉回车速的同步刹车扭矩。
+    public float coastBrakeTorque = 35f; // 松开油门后的温和轮上阻力，主要用于中高速滑行，不用于低速急停。
+    public float coastBrakeStartSpeed = 2.5f; // 低于该速度时不再施加空挡轮上阻力，避免 1 m/s 左右突然像重刹。
+    public float coastBrakeFullSpeed = 10f; // 达到该速度后，空挡轮上阻力增长到设定上限。
+    public float coastingWheelSyncBrakeTorque = 320f; // 松开刹车且无油门时，用来把轮速拉回车速的同步刹车扭矩。
     public float coastingWheelSyncRpmTolerance = 25f; // 轮速与车速对应转速相差超过该阈值时，认为存在明显“轮速滞后/超前”。
-    public float coastingWheelSyncMinSpeed = 1.2f; // 只有速度高于该阈值时才启用轮速同步，避免低速阶段像突然补刹。
+    public float coastingWheelSyncMinSpeed = 2f; // 只有速度高于该阈值时才启用轮速同步，避免低速阶段像突然补刹。
     public float lowSpeedCoastThreshold = 2.2f; // 低于该速度后开始补一点尾速收口，避免低速滑太久停不下来。
     public float lowSpeedCoastBrakeTorque = 0f; // 低速空挡尾速收口使用的小刹车扭矩；默认关闭，避免再次出现“低速突然一脚刹车”。
     public float directionChangeSpeedThreshold = 0.35f; // 当前进/后退方向与输入相反且速度高于该阈值时，先刹停再反向驱动。
@@ -544,10 +544,11 @@ public class SimpleCarController : MonoBehaviour
             brakeTorque = Mathf.Max(brakeTorque, brakeDamping * 150f);
         }
 
-        if (ShouldApplyCoastingWheelSyncBrake(brakePressed, absForwardSpeed, averageDriveWheelRpm))
+        float syncBrakeTorque = GetCoastingWheelSyncBrakeTorque(brakePressed, absForwardSpeed, averageDriveWheelRpm);
+        if (syncBrakeTorque > 0f)
         {
-            // 松开刹车后如果轮子还明显“转得比车快”，继续给一点小刹车把轮速拉回车速，避免车速反弹。
-            brakeTorque = Mathf.Max(brakeTorque, coastingWheelSyncBrakeTorque);
+            // 松开油门后如果轮子仍明显快于车速，对同步刹车做比例控制，避免过晚介入或低速阶段突然补重刹。
+            brakeTorque = Mathf.Max(brakeTorque, syncBrakeTorque);
         }
 
         if (!brakePressed && Mathf.Abs(CurrentThrottleInput) < 0.01f && absForwardSpeed < lowSpeedCoastThreshold)
@@ -602,15 +603,22 @@ public class SimpleCarController : MonoBehaviour
         return validCount > 0 ? rpmSum / validCount : 0f;
     }
 
-    private bool ShouldApplyCoastingWheelSyncBrake(bool brakePressed, float absForwardSpeed, float averageDriveWheelRpm)
+    private float GetCoastingWheelSyncBrakeTorque(bool brakePressed, float absForwardSpeed, float averageDriveWheelRpm)
     {
         if (brakePressed || Mathf.Abs(CurrentThrottleInput) > 0.01f || absForwardSpeed < coastingWheelSyncMinSpeed)
         {
-            return false;
+            return 0f;
         }
 
         float expectedRollingRpm = GetExpectedRollingRpm(absForwardSpeed);
-        return Mathf.Abs(averageDriveWheelRpm) > expectedRollingRpm + coastingWheelSyncRpmTolerance;
+        float rpmOverspeed = Mathf.Abs(averageDriveWheelRpm) - expectedRollingRpm - coastingWheelSyncRpmTolerance;
+        if (rpmOverspeed <= 0f)
+        {
+            return 0f;
+        }
+
+        float syncFactor = Mathf.Clamp01(rpmOverspeed / Mathf.Max(coastingWheelSyncRpmTolerance * 3f, 1f));
+        return coastingWheelSyncBrakeTorque * syncFactor;
     }
 
     private float GetExpectedRollingRpm(float absForwardSpeed)

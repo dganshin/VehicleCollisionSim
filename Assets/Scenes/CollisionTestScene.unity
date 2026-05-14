@@ -495,7 +495,7 @@ MonoBehaviour:
   disableChildWheelColliders: 0
   applyRuntimeRigidbodySettings: 1
   drivingLinearDamping: 0.015
-  runtimeLinearDamping: 0.035
+  runtimeLinearDamping: 0.05
   runtimeAngularDamping: 5
   useInactiveCollisionTuning: 0
   inactiveLinearDamping: 0.02
@@ -506,12 +506,12 @@ MonoBehaviour:
   wheelTorqueScale: 1.25
   reverseAccelerationScale: 0.4
   brakeTorqueScale: 160
-  coastBrakeTorque: 55
-  coastBrakeStartSpeed: 1.5
-  coastBrakeFullSpeed: 6
-  coastingWheelSyncBrakeTorque: 220
+  coastBrakeTorque: 35
+  coastBrakeStartSpeed: 2.5
+  coastBrakeFullSpeed: 10
+  coastingWheelSyncBrakeTorque: 320
   coastingWheelSyncRpmTolerance: 25
-  coastingWheelSyncMinSpeed: 1.2
+  coastingWheelSyncMinSpeed: 2
   lowSpeedCoastThreshold: 2.2
   lowSpeedCoastBrakeTorque: 0
   directionChangeSpeedThreshold: 0.35
