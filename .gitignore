@@ -1,0 +1,47 @@
+# Unity generated folders
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+
+# Visual Studio / Rider / VS Code
+.vs/
+.vsconfig
+.vscode/
+.idea/
+*.suo
+*.user
+*.userprefs
+*.csproj
+*.sln.docstates
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+
+# Unity / Mono generated project files
+*.sln
+*.tmp
+*.unityproj
+*.pidb.meta
+*.pdb.meta
+*.mdb.meta
+
+# OS / misc
+.DS_Store
+Thumbs.db
+Desktop.ini
+UpgradeLog.htm
+
+# Keep actual Unity project content
+!Assets/
+!Packages/
+!ProjectSettings/
+!docs/
+!*.md
