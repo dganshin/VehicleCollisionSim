@@ -32,11 +32,11 @@ public class SimpleCarController : MonoBehaviour
     public float coastBrakeTorque = 0f; // 旧参数保留；当前主线不再依赖轮上刹车模拟滑行，避免低速阶段突兀重刹。
     public float coastBrakeStartSpeed = 2.5f; // 低于该速度时不再施加空挡轮上阻力，避免 1 m/s 左右突然像重刹。
     public float coastBrakeFullSpeed = 10f; // 达到该速度后，空挡轮上阻力增长到设定上限。
-    public float coastingMotorDragTorque = 140f; // 松开油门后用于抵消残余轮速的反向驱动扭矩上限，避免车辆继续自己加速。
-    public float coastingMotorDragRpmFactor = 0.55f; // 松油后反向驱动扭矩随轮速增长的比例，轮速越高，卸载越快。
+    public float coastingMotorDragTorque = 0f; // 旧参数保留；当前主线不再直接用反向 motorTorque 消残余轮速，避免符号错误时继续加速。
+    public float coastingMotorDragRpmFactor = 0f; // 旧参数保留；当前版本主要通过更早介入的轮速同步刹车处理松油后残余轮速。
     public float coastingWheelSyncBrakeTorque = 120f; // 松开刹车且无油门时，用来把轮速拉回车速的同步刹车扭矩。
     public float coastingWheelSyncRpmTolerance = 25f; // 轮速与车速对应转速相差超过该阈值时，认为存在明显“轮速滞后/超前”。
-    public float coastingWheelSyncMinSpeed = 4f; // 只有速度高于该阈值时才启用轮速同步，避免低速阶段像突然补刹。
+    public float coastingWheelSyncMinSpeed = 1.5f; // 速度高于该阈值时就允许同步收轮速，但实际扭矩会按速度系数渐进放大，避免低速突兀。
     public float lowSpeedCoastThreshold = 2.2f; // 低于该速度后开始补一点尾速收口，避免低速滑太久停不下来。
     public float lowSpeedCoastBrakeTorque = 0f; // 低速空挡尾速收口使用的小刹车扭矩；默认关闭，避免再次出现“低速突然一脚刹车”。
     public float directionChangeSpeedThreshold = 0.35f; // 当前进/后退方向与输入相反且速度高于该阈值时，先刹停再反向驱动。
@@ -536,12 +536,6 @@ public class SimpleCarController : MonoBehaviour
             brakeTorque = Mathf.Max(brakeTorque, stationaryReverseBrakeTorque);
         }
 
-        if (isCoasting && Mathf.Abs(averageDriveWheelRpm) > 1f)
-        {
-            float dragTorque = Mathf.Min(coastingMotorDragTorque, Mathf.Abs(averageDriveWheelRpm) * coastingMotorDragRpmFactor);
-            motorTorque = -Mathf.Sign(averageDriveWheelRpm) * dragTorque;
-        }
-
         if (isCoasting && absForwardSpeed > coastBrakeStartSpeed)
         {
             // 空挡阻力随速度逐步增强：低速不生硬，高速也不会像完全无阻力一样继续蹿。
@@ -629,7 +623,11 @@ public class SimpleCarController : MonoBehaviour
         }
 
         float syncFactor = Mathf.Clamp01(rpmOverspeed / Mathf.Max(coastingWheelSyncRpmTolerance * 3f, 1f));
-        return coastingWheelSyncBrakeTorque * syncFactor;
+        float speedFactor = Mathf.InverseLerp(
+            coastingWheelSyncMinSpeed,
+            Mathf.Max(coastBrakeFullSpeed, coastingWheelSyncMinSpeed + 0.01f),
+            absForwardSpeed);
+        return coastingWheelSyncBrakeTorque * syncFactor * speedFactor;
     }
 
     private float GetExpectedRollingRpm(float absForwardSpeed)

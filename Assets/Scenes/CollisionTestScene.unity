@@ -509,11 +509,11 @@ MonoBehaviour:
   coastBrakeTorque: 0
   coastBrakeStartSpeed: 2.5
   coastBrakeFullSpeed: 10
-  coastingMotorDragTorque: 140
-  coastingMotorDragRpmFactor: 0.55
+  coastingMotorDragTorque: 0
+  coastingMotorDragRpmFactor: 0
   coastingWheelSyncBrakeTorque: 120
   coastingWheelSyncRpmTolerance: 25
-  coastingWheelSyncMinSpeed: 4
+  coastingWheelSyncMinSpeed: 1.5
   lowSpeedCoastThreshold: 2.2
   lowSpeedCoastBrakeTorque: 0
   directionChangeSpeedThreshold: 0.35
