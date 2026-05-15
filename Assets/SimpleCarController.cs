@@ -5,13 +5,33 @@ using System.IO;
 
 public class SimpleCarController : MonoBehaviour
 {
-    private const string CurrentBuildTagValue = "coast_fix_scene_sync_2026_05_15_v6_power_x2";
+    private const string CurrentBuildTagValue = "coast_fix_scene_sync_2026_05_15_v12_push_softened";
     private const float CurrentMotorAccelerationValue = 6400f;
     private const float CurrentStartBoostAccelerationValue = 8400f;
     private const float CurrentWheelTorqueScaleValue = 1.4f;
     private const float CurrentCoastingDecelerationLowSpeedValue = 0.24f;
     private const float CurrentCoastingDecelerationHighSpeedValue = 0.72f;
     private const float CurrentCoastingDecelerationBlendSpeedValue = 30f;
+    private const float CurrentCenterOfMassYValue = -0.05f;
+    private const float CurrentRuntimeAngularDampingValue = 1.6f;
+    private const float CurrentInactivePushAssistSpeedValue = 3.8f;
+    private const float CurrentInactivePushAssistMaxTargetSpeedValue = 8f;
+    private const float CurrentInactivePushAssistImpulseThresholdValue = 12f;
+    private const float CurrentInactivePushAssistTuningDurationValue = 0.8f;
+    private const float CurrentContactImpulseTransferScaleValue = 3.1f;
+    private const float CurrentContactPushVelocityStepValue = 0.65f;
+    private const float CurrentContactStaticPushSpeedThresholdValue = 2.6f;
+    private const float CurrentContactMinimumPushSpeedValue = 1.15f;
+    private const float CurrentContactImmediateVelocitySeedValue = 1.45f;
+    private const float CurrentDirectionChangeSpeedThresholdValue = 0.25f;
+    private const float CurrentStationaryReverseRpmThresholdValue = 260f;
+    private const float CurrentStationaryReverseBrakeTorqueValue = 1800f;
+    private const float CurrentStationaryReverseLockTimeValue = 0.08f;
+    private const float CurrentCollisionReverseAssistBrakeTorqueValue = 2800f;
+    private const float CurrentCollisionReverseAssistLockTimeValue = 0.03f;
+    private const float CurrentCollisionReverseBodyAssistAccelerationValue = 16f;
+    private const float CurrentCollisionReverseBodyAssistSpeedThresholdValue = 3f;
+    private const float CurrentCollisionReverseBodyVelocitySeedValue = 1.2f;
 
     public bool isControlled = false; // 当前这辆车是否接收玩家输入。
     public string debugBuildTag = CurrentBuildTagValue; // 仅用于在 Inspector 中确认当前场景实例是否真的吃到了这轮修改。
@@ -25,7 +45,7 @@ public class SimpleCarController : MonoBehaviour
     public float minTurnSpeed = 2.5f; // 备用刚体驱动模式下，达到该前后速度后才允许明显转向。
     public float steerAngularDamping = 6f; // 备用刚体驱动模式下用于压制低速原地乱扭的偏航阻尼。
     public float flippedDotThreshold = 0.55f; // 车身朝上程度低于该阈值时，判定为翻车并停止驱动输入。
-    public Vector3 centerOfMassOffset = new Vector3(0f, -0.12f, 0f); // 局部重心偏移；适度抬高重心，避免侧撞后像被强行扶正。
+    public Vector3 centerOfMassOffset = new Vector3(0f, -0.05f, 0f); // 局部重心偏移；继续抬高重心，减少高速侧撞后像浮漂一样被硬拉回正。
     public bool disableChildWheelColliders = false; // 旧调试开关；当前方案保持 WheelCollider 启用。
     public bool applyRuntimeRigidbodySettings = true; // 是否在运行时覆盖部分 Rigidbody 阻尼和插值设置。
     public float drivingLinearDamping = 0.015f; // 持续给油时使用的线性阻尼，应尽量小，避免前进动力被阻尼吃掉。
@@ -39,7 +59,7 @@ public class SimpleCarController : MonoBehaviour
     public bool debugCoastingAudit = false; // 是否开启空挡滑行来源审计日志。
     public float debugCoastingAuditInterval = 0.2f; // 空挡滑行审计日志的输出间隔，避免每帧刷屏。
     public bool debugCoastingAuditWriteToFile = true; // 是否把空挡滑行审计日志同步写入文本文件，方便完整保存。
-    public float runtimeAngularDamping = 2.2f; // 车辆旋转时的基础角阻尼；进一步降低，减少“快翻又被硬拉回正”的感觉。
+    public float runtimeAngularDamping = 1.6f; // 车辆旋转时的基础角阻尼；继续降低，让侧撞后的翻滚趋势更容易保留下来。
     public bool useInactiveCollisionTuning = false; // 是否对非当前控制车辆启用更低阻力碰撞展示参数；当前默认关闭，避免切车后手感不一致。
     public float inactiveLinearDamping = 0.02f; // 非激活车辆使用的较低线性阻尼，兼顾被撞动和不过分打滑。
     public float wheelColliderMass = 8f; // 轮子等效质量；适度降低，减轻“轮子像巨大飞轮一样难起转、难反转、松油后还继续推车”的感觉。
@@ -63,27 +83,34 @@ public class SimpleCarController : MonoBehaviour
     public float coastingOppositeSpinRpmThreshold = 120f; // 只有反号轮速达到该阈值后才介入，避免正常细小抖动被误判。
     public float lowSpeedCoastThreshold = 2.2f; // 低于该速度后开始补一点尾速收口，避免低速滑太久停不下来。
     public float lowSpeedCoastBrakeTorque = 0f; // 低速空挡尾速收口使用的小刹车扭矩；默认关闭，避免再次出现“低速突然一脚刹车”。
-    public float directionChangeSpeedThreshold = 0.35f; // 当前进/后退方向与输入相反且速度高于该阈值时，先刹停再反向驱动。
+    public float directionChangeSpeedThreshold = 0.25f; // 当前进/后退方向与输入相反且速度高于该阈值时，先刹停再反向驱动；略降低，让低速反向更快进入新方向。
     public float directionChangeBrakeTorque = 2500f; // 换向阶段附加的刹车扭矩，用来避免先顺着旧方向多滑一截。
-    public float stationaryReverseRpmThreshold = 120f; // 车辆几乎没动但轮子仍在空转时，超过该转速就先刹轮再允许反向。
-    public float stationaryReverseBrakeTorque = 3200f; // 顶住障碍或另一辆车时，切换前后方向所用的额外刹车扭矩。
-    public float stationaryReverseLockTime = 0.18f; // 静止受阻时前后换向的强制刹轮时间，避免像开船一样慢悠悠反向。
+    public float stationaryReverseRpmThreshold = 260f; // 车辆几乎没动但轮子仍在空转时，只有高于该阈值才强制刹轮，避免轻微残余轮速也把反向拖得很慢。
+    public float stationaryReverseBrakeTorque = 1800f; // 顶住障碍或另一辆车时，切换前后方向所用的额外刹车扭矩；适度减小，避免长时间像巨大飞轮一样拖住。
+    public float stationaryReverseLockTime = 0.08f; // 静止受阻时前后换向的强制刹轮时间；缩短，让 W/S 切换更快进入新方向。
     public bool holdBrakeAtIdle = false; // 是否在几乎静止且无输入时自动补一点刹车，当前默认关闭以保留自然滑停。
     public bool applyLowFrictionMaterial = true; // 是否在运行时给车身碰撞体附加低摩擦材质。
     public float bodyStaticFriction = 0.08f; // 运行时车身碰撞体材质的静摩擦系数。
     public float bodyDynamicFriction = 0.06f; // 运行时车身碰撞体材质的动摩擦系数。
     public bool liftVehicleAboveGroundOnStart = true; // 是否在启动时把车辆轻微抬起，避免出生时和地面穿插。
     public float startGroundClearance = 0.03f; // 启动离地校正后，车辆最低点与地面保留的额外间隙。
-    public float inactivePushAssistSpeed = 1.8f; // 非激活静止车辆在被撞时附加的启动速度，帮助把碰撞力转成可见位移。
-    public float inactivePushAssistMaxTargetSpeed = 4f; // 非激活车辆低于该速度时才使用启动辅助，避免高速碰撞被过度放大。
-    public float inactivePushAssistImpulseThreshold = 75f; // 碰撞水平冲量低于该阈值时，不额外放大，避免轻微接触就乱动。
-    public float inactivePushAssistTuningDuration = 0.35f; // 旧参数保留给 UI；当前主线不再依赖“低阻力窗口”来让车被撞动。
-    public float contactImpulseTransferScale = 1.35f; // 前后向碰撞时，将纵向碰撞冲量换算成目标车纵向速度变化的倍率。
-    public float contactPushVelocityStep = 0.28f; // 当前控制车贴住静止目标持续给油时，每个物理步补给目标车的纵向速度步进。
-    public float contactStaticPushSpeedThreshold = 1.25f; // 两车都接近静止时，才启用贴住推车步进，避免中高速碰撞被额外放大。
+    public float inactivePushAssistSpeed = 3.8f; // 非激活静止车辆在被撞时附加的启动速度；回调一档，避免低速轻碰就像炸弹一样弹开。
+    public float inactivePushAssistMaxTargetSpeed = 8f; // 非激活车辆低于该速度时才使用启动辅助；仍然限制在演示用的中低速顶推阶段。
+    public float inactivePushAssistImpulseThreshold = 12f; // 继续降低纵向冲量触发门槛，让中低速正面碰撞更容易产生前后位移。
+    public float inactivePushAssistTuningDuration = 0.8f; // 被顶车辆在短时间内切到更易滚动的阻力配置，持续略长一点，优先解决“后轮抬起但车身不走”。
+    public float contactImpulseTransferScale = 3.1f; // 前后向碰撞时，将纵向碰撞冲量换算成目标车纵向速度变化的倍率；降低一档，保留低速碰撞位移但减弱“被炸开”的感觉。
+    public float contactPushVelocityStep = 0.65f; // 当前控制车贴住静止目标持续给油时，每个物理步补给目标车的纵向速度步进；回调到更像“缓慢顶走”。
+    public float contactStaticPushSpeedThreshold = 2.6f; // 两车都接近静止时，才启用贴住推车步进；进一步放宽，让低速起步贴车更容易生效。
+    public float contactMinimumPushSpeed = 1.15f; // 低速正面追尾时，目标车沿前后方向至少建立起的启动速度；保留可见位移，但避免过于突兀。
+    public float contactImmediateVelocitySeed = 1.45f; // 正面低速撞击当下给目标车建立的最低纵向速度种子；继续保留断点补偿，但强度显著减弱。
     public float contactPushSpeedThreshold = 6f; // 只有在较低碰撞速度下才启用接触推车辅助。
     public float contactPushAlignmentThreshold = 0.35f; // 接触点与车辆前后方向的对齐阈值，避免侧擦时误判为推车。
     public float bumperZoneThreshold = 1.35f; // 接触点在车体前后向上的占比阈值，只有明显处于前后保险杠区域才触发推车辅助。
+    public float collisionReverseAssistBrakeTorque = 2800f; // 顶住另一辆车时，如果用户已经在反向给油，用这段刹车快速卸掉旧轮速，减少“巨大飞轮效应”。
+    public float collisionReverseAssistLockTime = 0.03f; // 碰撞状态下的反向辅助刹轮时间，比普通换向更短，只用于尽快把控制权交给新方向。
+    public float collisionReverseBodyAssistAcceleration = 16f; // 碰撞态反向时，直接给车身一个小的反向加速度，避免必须等轮子先完全消掉旧扭矩才开始后退。
+    public float collisionReverseBodyAssistSpeedThreshold = 3f; // 只有在较低前后速度下才启用碰撞态反向车身辅助，避免正常高速驾驶时被误触发。
+    public float collisionReverseBodyVelocitySeed = 1.2f; // 碰撞态反向时，车身沿新方向至少建立起的最低速度种子，避免要等几秒才终于开始后退。
 
     private Rigidbody rb;
     private WheelCollider[] cachedWheelColliders;
@@ -97,6 +124,7 @@ public class SimpleCarController : MonoBehaviour
     private PhysicsMaterial runtimeBodyMaterial;
     private bool startPoseAdjusted;
     private Vector3 pendingInactiveVelocityChange;
+    private float inactivePushAssistTimer;
     private float reverseLockTimer;
     private int lastThrottleDirection;
     private float coastingAuditTimer;
@@ -186,6 +214,26 @@ public class SimpleCarController : MonoBehaviour
         coastingDecelerationLowSpeed = CurrentCoastingDecelerationLowSpeedValue;
         coastingDecelerationHighSpeed = CurrentCoastingDecelerationHighSpeedValue;
         coastingDecelerationBlendSpeed = CurrentCoastingDecelerationBlendSpeedValue;
+        centerOfMassOffset.y = CurrentCenterOfMassYValue;
+        runtimeAngularDamping = CurrentRuntimeAngularDampingValue;
+        inactivePushAssistSpeed = CurrentInactivePushAssistSpeedValue;
+        inactivePushAssistMaxTargetSpeed = CurrentInactivePushAssistMaxTargetSpeedValue;
+        inactivePushAssistImpulseThreshold = CurrentInactivePushAssistImpulseThresholdValue;
+        inactivePushAssistTuningDuration = CurrentInactivePushAssistTuningDurationValue;
+        contactImpulseTransferScale = CurrentContactImpulseTransferScaleValue;
+        contactPushVelocityStep = CurrentContactPushVelocityStepValue;
+        contactStaticPushSpeedThreshold = CurrentContactStaticPushSpeedThresholdValue;
+        contactMinimumPushSpeed = CurrentContactMinimumPushSpeedValue;
+        contactImmediateVelocitySeed = CurrentContactImmediateVelocitySeedValue;
+        directionChangeSpeedThreshold = CurrentDirectionChangeSpeedThresholdValue;
+        stationaryReverseRpmThreshold = CurrentStationaryReverseRpmThresholdValue;
+        stationaryReverseBrakeTorque = CurrentStationaryReverseBrakeTorqueValue;
+        stationaryReverseLockTime = CurrentStationaryReverseLockTimeValue;
+        collisionReverseAssistBrakeTorque = CurrentCollisionReverseAssistBrakeTorqueValue;
+        collisionReverseAssistLockTime = CurrentCollisionReverseAssistLockTimeValue;
+        collisionReverseBodyAssistAcceleration = CurrentCollisionReverseBodyAssistAccelerationValue;
+        collisionReverseBodyAssistSpeedThreshold = CurrentCollisionReverseBodyAssistSpeedThresholdValue;
+        collisionReverseBodyVelocitySeed = CurrentCollisionReverseBodyVelocitySeedValue;
     }
 
     private void FixedUpdate()
@@ -209,6 +257,12 @@ public class SimpleCarController : MonoBehaviour
 
         if (!isControlled)
         {
+            if (inactivePushAssistTimer > 0f)
+            {
+                inactivePushAssistTimer = Mathf.Max(0f, inactivePushAssistTimer - Time.fixedDeltaTime);
+                applyInactiveTuning = true;
+            }
+
             CurrentThrottleInput = 0f;
             CurrentSteerInput = 0f;
             SetLinearDamping(applyInactiveTuning ? inactiveLinearDamping : normalDamping);
@@ -397,6 +451,7 @@ public class SimpleCarController : MonoBehaviour
             return;
         }
 
+        inactivePushAssistTimer = Mathf.Max(inactivePushAssistTimer, inactivePushAssistTuningDuration);
         pendingInactiveVelocityChange += pushDirection.normalized * pushSpeed;
     }
 
@@ -451,6 +506,7 @@ public class SimpleCarController : MonoBehaviour
         directionChangeBrakeTorque = source.directionChangeBrakeTorque;
         stationaryReverseRpmThreshold = source.stationaryReverseRpmThreshold;
         stationaryReverseBrakeTorque = source.stationaryReverseBrakeTorque;
+        stationaryReverseLockTime = source.stationaryReverseLockTime;
         holdBrakeAtIdle = source.holdBrakeAtIdle;
         applyLowFrictionMaterial = source.applyLowFrictionMaterial;
         bodyStaticFriction = source.bodyStaticFriction;
@@ -464,9 +520,16 @@ public class SimpleCarController : MonoBehaviour
         contactImpulseTransferScale = source.contactImpulseTransferScale;
         contactPushVelocityStep = source.contactPushVelocityStep;
         contactStaticPushSpeedThreshold = source.contactStaticPushSpeedThreshold;
+        contactMinimumPushSpeed = source.contactMinimumPushSpeed;
+        contactImmediateVelocitySeed = source.contactImmediateVelocitySeed;
         contactPushSpeedThreshold = source.contactPushSpeedThreshold;
         contactPushAlignmentThreshold = source.contactPushAlignmentThreshold;
         bumperZoneThreshold = source.bumperZoneThreshold;
+        collisionReverseAssistBrakeTorque = source.collisionReverseAssistBrakeTorque;
+        collisionReverseAssistLockTime = source.collisionReverseAssistLockTime;
+        collisionReverseBodyAssistAcceleration = source.collisionReverseBodyAssistAcceleration;
+        collisionReverseBodyAssistSpeedThreshold = source.collisionReverseBodyAssistSpeedThreshold;
+        collisionReverseBodyVelocitySeed = source.collisionReverseBodyVelocitySeed;
 
         Rigidbody sourceRb = source.CachedRigidbody != null ? source.CachedRigidbody : source.GetComponent<Rigidbody>();
         Rigidbody targetRb = CachedRigidbody != null ? CachedRigidbody : GetComponent<Rigidbody>();
@@ -602,8 +665,8 @@ public class SimpleCarController : MonoBehaviour
         }
         else if (isReversingWheelSpinWhileBlocked)
         {
-            // 车身几乎没动，但轮子还在按旧方向空转时，先刹掉轮速，再允许反向给扭矩。
-            motorTorque = 0f;
+            // 车身几乎没动，但轮子还在按旧方向空转时，先强制减速旧轮速，同时给一点反向扭矩帮助尽快进入新方向。
+            motorTorque *= 0.35f;
             brakeTorque = Mathf.Max(brakeTorque, stationaryReverseBrakeTorque);
         }
 
@@ -853,7 +916,21 @@ public class SimpleCarController : MonoBehaviour
         float horizontalSpeed = Vector3.ProjectOnPlane(GetLinearVelocity(), Vector3.up).magnitude;
         if (horizontalSpeed < inactivePushAssistMaxTargetSpeed)
         {
-            rb.AddForce(pendingInactiveVelocityChange, ForceMode.VelocityChange);
+            Vector3 pushDirection = Vector3.ProjectOnPlane(pendingInactiveVelocityChange, Vector3.up);
+            float pushMagnitude = pushDirection.magnitude;
+            if (pushMagnitude > 0.0001f)
+            {
+                pushDirection /= pushMagnitude;
+                Vector3 planarVelocity = Vector3.ProjectOnPlane(GetLinearVelocity(), Vector3.up);
+                float currentAlong = Vector3.Dot(planarVelocity, pushDirection);
+                float targetAlong = Mathf.Min(inactivePushAssistMaxTargetSpeed, Mathf.Max(pushMagnitude, currentAlong + pushMagnitude));
+                float requiredDelta = targetAlong - currentAlong;
+                if (requiredDelta > 0.0001f)
+                {
+                    rb.AddForce(pushDirection * requiredDelta, ForceMode.VelocityChange);
+                }
+            }
+
             rb.WakeUp();
         }
 
@@ -900,6 +977,7 @@ public class SimpleCarController : MonoBehaviour
         }
 
         ApplyControlledContactPush(collision);
+        ApplyCollisionReverseAssist(collision);
     }
 
     private void ApplyControlledContactPush(Collision collision)
@@ -959,21 +1037,107 @@ public class SimpleCarController : MonoBehaviour
             sustainedPushSpeed = Mathf.Abs(CurrentThrottleInput) * contactPushVelocityStep;
         }
 
-        float pushSpeed = Mathf.Max(impulsePushSpeed, sustainedPushSpeed);
+        float minimumPushSpeed = 0f;
+        if (otherSpeed < contactPushSpeedThreshold)
+        {
+            minimumPushSpeed = Mathf.Min(
+                inactivePushAssistMaxTargetSpeed,
+                Mathf.Max(contactMinimumPushSpeed, ownSpeed * 0.35f));
+        }
+
+        float pushSpeed = Mathf.Max(impulsePushSpeed, sustainedPushSpeed, minimumPushSpeed);
         if (pushSpeed <= 0.0001f)
         {
             return;
         }
 
+        float seededPushSpeed = Mathf.Min(
+            inactivePushAssistMaxTargetSpeed,
+            Mathf.Max(pushSpeed, contactImmediateVelocitySeed));
+
         SimpleCarController otherController = otherRb.GetComponent<SimpleCarController>();
         if (otherController != null)
         {
+            otherController.PrepareForPassivePush();
+            EnsurePlanarSpeedAlong(otherRb, targetPushDirection, seededPushSpeed);
             otherController.QueueInactivePush(targetPushDirection, pushSpeed);
         }
         else
         {
-            otherRb.AddForce(targetPushDirection * pushSpeed, ForceMode.VelocityChange);
-            otherRb.WakeUp();
+            EnsurePlanarSpeedAlong(otherRb, targetPushDirection, seededPushSpeed);
+        }
+    }
+
+    private void ApplyCollisionReverseAssist(Collision collision)
+    {
+        if (collision == null || collision.rigidbody == null || collision.rigidbody.isKinematic)
+        {
+            return;
+        }
+
+        if (Mathf.Abs(CurrentThrottleInput) < 0.01f)
+        {
+            return;
+        }
+
+        float absForwardSpeed = Mathf.Abs(CurrentForwardSpeed);
+        float averageDriveWheelRpm = GetAverageDriveWheelRpm();
+        bool wantsOppositeOfVelocity =
+            absForwardSpeed > 0.05f &&
+            Mathf.Sign(CurrentThrottleInput) != Mathf.Sign(CurrentForwardSpeed);
+        bool wantsOppositeOfWheelSpin =
+            Mathf.Abs(averageDriveWheelRpm) > 40f &&
+            Mathf.Sign(CurrentThrottleInput) != Mathf.Sign(averageDriveWheelRpm);
+
+        if (!wantsOppositeOfVelocity && !wantsOppositeOfWheelSpin)
+        {
+            return;
+        }
+
+        reverseLockTimer = Mathf.Max(reverseLockTimer, collisionReverseAssistLockTime);
+        lastThrottleDirection = CurrentThrottleInput > 0f ? 1 : -1;
+
+        for (int i = 0; i < driveWheels.Length; i++)
+        {
+            if (driveWheels[i] == null)
+            {
+                continue;
+            }
+
+            driveWheels[i].motorTorque = 0f;
+            driveWheels[i].brakeTorque = Mathf.Max(driveWheels[i].brakeTorque, collisionReverseAssistBrakeTorque);
+        }
+
+        if (Mathf.Abs(CurrentForwardSpeed) < collisionReverseBodyAssistSpeedThreshold)
+        {
+            Vector3 reverseAssistDirection = GetPlanarForward() * Mathf.Sign(CurrentThrottleInput);
+            if (reverseAssistDirection.sqrMagnitude > 0.0001f)
+            {
+                EnsurePlanarSpeedAlong(rb, reverseAssistDirection.normalized, collisionReverseBodyVelocitySeed);
+                rb.AddForce(reverseAssistDirection.normalized * collisionReverseBodyAssistAcceleration, ForceMode.Acceleration);
+            }
+        }
+    }
+
+    private void PrepareForPassivePush()
+    {
+        reverseLockTimer = 0f;
+        lastThrottleDirection = 0;
+
+        if (driveWheels == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < driveWheels.Length; i++)
+        {
+            if (driveWheels[i] == null)
+            {
+                continue;
+            }
+
+            driveWheels[i].motorTorque = 0f;
+            driveWheels[i].brakeTorque = 0f;
         }
     }
 
@@ -1182,15 +1346,20 @@ public class SimpleCarController : MonoBehaviour
             return;
         }
 
-        // 只降低车身碰撞体与地面的摩擦，WheelCollider 本身的轮胎摩擦仍由 Unity 轮子模型处理。
-        runtimeBodyMaterial = new PhysicsMaterial("RuntimeVehicleBodyLowFriction")
+        // 这里不能在运行时同步参数的每一帧都 new/重挂一次材质，否则会不断触发 PhysX 的形状材质重建，
+        // 当前项目里已经实测会把 Unity 6000.3 在 Play 中直接顶崩。
+        if (runtimeBodyMaterial == null)
         {
-            staticFriction = bodyStaticFriction,
-            dynamicFriction = bodyDynamicFriction,
-            bounciness = 0f,
-            frictionCombine = PhysicsMaterialCombine.Minimum,
-            bounceCombine = PhysicsMaterialCombine.Minimum
-        };
+            runtimeBodyMaterial = new PhysicsMaterial("RuntimeVehicleBodyLowFriction")
+            {
+                bounciness = 0f,
+                frictionCombine = PhysicsMaterialCombine.Minimum,
+                bounceCombine = PhysicsMaterialCombine.Minimum
+            };
+        }
+
+        runtimeBodyMaterial.staticFriction = bodyStaticFriction;
+        runtimeBodyMaterial.dynamicFriction = bodyDynamicFriction;
 
         Collider[] colliders = GetComponentsInChildren<Collider>(true);
         for (int i = 0; i < colliders.Length; i++)
@@ -1200,7 +1369,10 @@ public class SimpleCarController : MonoBehaviour
                 continue;
             }
 
-            colliders[i].material = runtimeBodyMaterial;
+            if (colliders[i].sharedMaterial != runtimeBodyMaterial)
+            {
+                colliders[i].sharedMaterial = runtimeBodyMaterial;
+            }
         }
     }
 
@@ -1294,6 +1466,41 @@ public class SimpleCarController : MonoBehaviour
     private static float GetHorizontalSpeed(Rigidbody targetRigidbody)
     {
         return Vector3.ProjectOnPlane(GetLinearVelocity(targetRigidbody), Vector3.up).magnitude;
+    }
+
+    private static void EnsurePlanarSpeedAlong(Rigidbody targetRigidbody, Vector3 direction, float desiredAlongSpeed)
+    {
+        if (targetRigidbody == null || desiredAlongSpeed <= 0.0001f)
+        {
+            return;
+        }
+
+        Vector3 planarDirection = Vector3.ProjectOnPlane(direction, Vector3.up);
+        if (planarDirection.sqrMagnitude < 0.0001f)
+        {
+            return;
+        }
+
+        planarDirection.Normalize();
+
+        Vector3 currentVelocity = GetLinearVelocity(targetRigidbody);
+        Vector3 planarVelocity = Vector3.ProjectOnPlane(currentVelocity, Vector3.up);
+        Vector3 verticalVelocity = Vector3.Project(currentVelocity, Vector3.up);
+        float currentAlongSpeed = Vector3.Dot(planarVelocity, planarDirection);
+        if (currentAlongSpeed >= desiredAlongSpeed)
+        {
+            targetRigidbody.WakeUp();
+            return;
+        }
+
+        Vector3 lateralVelocity = planarVelocity - planarDirection * currentAlongSpeed;
+        Vector3 updatedPlanarVelocity = lateralVelocity + planarDirection * desiredAlongSpeed;
+#if UNITY_6000_0_OR_NEWER
+        targetRigidbody.linearVelocity = updatedPlanarVelocity + verticalVelocity;
+#else
+        targetRigidbody.velocity = updatedPlanarVelocity + verticalVelocity;
+#endif
+        targetRigidbody.WakeUp();
     }
 
     private float GetLinearDamping()

@@ -69,3 +69,10 @@
 | TC-43 | 纵向冲量推车测试 | 场景已更新为“主控车负责纵向冲量推车”版本；两辆车均可正常切换和行驶 | 1. 让 `2` 车完全静止 2. 用 `1` 车从后方以较低速度追尾 3. 观察 `2` 车是否沿自身前后方向开始位移 4. 再在两车都接近静止时，`1` 车贴住 `2` 车持续按 `W` | 目标车应不再必须先被撞飞或先有初速度，低速追尾和贴车推送都应能把静止车沿轮子方向推出去 | 待填写 | 待填写 | 重点验证 `contactImpulseTransferScale`、`contactStaticPushSpeedThreshold`、`contactPushVelocityStep` |
 | TC-44 | 纵向冲量与侧门抑制回归测试 | 低速碰撞主线已改为只在前后保险杠区域辅助推车 | 1. 从后方低速顶静止目标车 2. 再从侧门方向做相近速度接触 3. 对比目标车位移方向和位移大小 | 后方接触应更容易沿车辆前后方向推动目标车；侧门接触不应再像之前那样轻易把车从侧面整体推走 | 待填写 | 待填写 | 重点验证 `bumperZoneThreshold` 与前后向接触判定是否收紧成功 |
 | TC-45 | 动力与滑行阻力回归测试 | 场景已更新为“小基础阻尼 + 恒定空挡轮上阻力”版本 | 1. 分别测试前进和倒车加速 2. 松开油门观察中高速与低速阶段的衰减 3. 再做一次中高速碰撞后观察目标车滑行距离 | 前进应明显强于倒车；松油后不应在较高速度段掉得像持续踩刹车，低速也不应拖尾太久；高速碰撞后的被撞车位移应比之前更自然 | 待填写 | 待填写 | 重点验证 `drivingLinearDamping`、`runtimeLinearDamping`、`wheelDampingRateScale`、`coastBrakeTorque`、`reverseAccelerationScale` |
+| TC-46 | 车辆与静态墙体碰撞 | `CollisionTestScene` 运行；`TestFieldGenerator` 已生成测试场 | 1. 驾驶车辆撞 `Wall_Front` 2. 观察车辆和 Console | 车辆被阻挡，不能穿墙，Console 显示 `Wall_Front` | 待填写 | 待填写 | 验证静态环境碰撞体 |
+| TC-47 | 车辆与建筑碰撞 | `TestFieldRoot` 已生成；`Building_1` 存在 | 1. 驾驶车辆撞 `Building_1` 2. 观察偏转和阻挡 | 车辆被阻挡或偏转，建筑不动 | 待填写 | 待填写 | 验证建筑静态碰撞 |
+| TC-48 | 车辆与桥墩碰撞 | 场景中存在 `BridgePillar_1` | 1. 驾驶车辆撞 `BridgePillar_1` 2. 观察碰撞响应 | 车辆产生碰撞响应，桥墩保持静止 | 待填写 | 待填写 | 用于桥梁/桥墩答辩演示 |
+| TC-49 | 车辆与树木碰撞 | 场景中存在 `Tree_1_Trunk` 或 `Tree_1_Crown` | 1. 驾驶车辆撞树 2. 观察阻挡和日志 | 车辆被树阻挡，Console 显示树对象名称 | 待填写 | 待填写 | 可展示植物碰撞 |
+| TC-50 | 车辆与动态箱子碰撞 | 场景中存在 `DynamicBox_1` | 1. 驾驶车辆撞 `DynamicBox_1` 2. 观察箱子位移和翻滚 | 箱子被撞飞、移动或翻滚 | 待填写 | 待填写 | 验证动态刚体障碍 |
+| TC-51 | 车辆与路障/交通锥碰撞 | 场景中存在 `Barrier_1` 与 `Cone_1` | 1. 驾驶车辆撞 `Barrier_1` 或 `Cone_1` 2. 观察路障/锥桶响应 | 路障和交通锥被撞倒或移动 | 待填写 | 待填写 | 验证轻量破坏/动态障碍 |
+| TC-52 | 低速正面碰撞强度回调测试 | `Debug Build Tag` 为 `coast_fix_scene_sync_2026_05_15_v12_push_softened`；两辆车都已接入同一版控制参数 | 1. 让前车静止 2. 用后车以低速正面追尾 3. 再做一次贴车持续按 `W` 推车 4. 观察位移和弹开程度 | 低速正面碰撞仍应有可见位移，但不应再像被炸弹弹开；贴车推车应更接近缓慢顶走 | 待填写 | 待填写 | 重点回归 `contactImmediateVelocitySeed/contactMinimumPushSpeed/contactPushVelocityStep` |
