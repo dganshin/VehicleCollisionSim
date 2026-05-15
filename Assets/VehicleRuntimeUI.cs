@@ -116,6 +116,7 @@ public class VehicleRuntimeUI : MonoBehaviour
         GUILayout.Label($"重力加速度：{Physics.gravity.magnitude:F2} m/s²");
         GUILayout.Label($"估算车长：{estimatedLength:F2} m");
         GUILayout.Label($"翻车状态：{(vehicle.IsFlipped ? "是" : "否")}");
+        GUILayout.Label($"调参版本：{vehicle.debugBuildTag}");
     }
 
     private void DrawActionSection()
@@ -165,13 +166,13 @@ public class VehicleRuntimeUI : MonoBehaviour
         GUILayout.Label("驱动与操控", sectionStyle);
 
         bool changed = false;
-        changed |= DrawSlider(ref vehicle.motorAcceleration, "正常驱动力", 100f, 4000f, "N/torque");
-        changed |= DrawSlider(ref vehicle.startBoostAcceleration, "起步辅助驱动力", 100f, 5000f, "N/torque");
+        changed |= DrawSlider(ref vehicle.motorAcceleration, "正常驱动力", 100f, 12000f, "N/torque");
+        changed |= DrawSlider(ref vehicle.startBoostAcceleration, "起步辅助驱动力", 100f, 16000f, "N/torque");
         changed |= DrawSlider(ref vehicle.turnAcceleration, "基础转向强度", 0.5f, 8f, "");
         changed |= DrawSlider(ref vehicle.highSpeedTurnFactor, "高速转向系数", 0.1f, 1f, "");
         changed |= DrawSlider(ref vehicle.brakeDamping, "刹车阻尼/制动力", 0.5f, 12f, "");
         changed |= DrawSlider(ref vehicle.maxSpeed, "软速度上限", 5f, 120f, "m/s");
-        changed |= DrawSlider(ref vehicle.wheelTorqueScale, "轮驱动扭矩倍率", 0.2f, 4f, "x");
+        changed |= DrawSlider(ref vehicle.wheelTorqueScale, "轮驱动扭矩倍率", 0.2f, 6f, "x");
         changed |= DrawSlider(ref vehicle.reverseAccelerationScale, "倒车驱动力倍率", 0.2f, 1f, "x");
         changed |= DrawSlider(ref vehicle.brakeTorqueScale, "刹车扭矩倍率", 50f, 500f, "x");
         changed |= DrawSlider(ref vehicle.coastBrakeTorque, "空挡轮上阻力", 0f, 200f, "Nm");
@@ -182,6 +183,9 @@ public class VehicleRuntimeUI : MonoBehaviour
         changed |= DrawSlider(ref vehicle.coastingWheelSyncBrakeTorque, "空挡轮速同步刹车", 0f, 3000f, "Nm");
         changed |= DrawSlider(ref vehicle.coastingWheelSyncRpmTolerance, "轮速同步容差", 0f, 120f, "rpm");
         changed |= DrawSlider(ref vehicle.coastingWheelSyncMinSpeed, "轮速同步最低速度", 0.2f, 4f, "m/s");
+        changed |= DrawSlider(ref vehicle.coastingDecelerationLowSpeed, "空挡低速减速度", 0f, 1f, "m/s²");
+        changed |= DrawSlider(ref vehicle.coastingDecelerationHighSpeed, "空挡高速减速度", 0f, 1f, "m/s²");
+        changed |= DrawSlider(ref vehicle.coastingDecelerationBlendSpeed, "空挡减速度过渡速度", 2f, 40f, "m/s");
         changed |= DrawSlider(ref vehicle.directionChangeSpeedThreshold, "换向速度阈值", 0.05f, 5f, "m/s");
         changed |= DrawSlider(ref vehicle.directionChangeBrakeTorque, "换向刹车扭矩", 200f, 6000f, "Nm");
         changed |= DrawSlider(ref vehicle.stationaryReverseRpmThreshold, "静止换向轮速阈值", 20f, 400f, "rpm");

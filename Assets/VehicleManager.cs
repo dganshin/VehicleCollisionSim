@@ -9,6 +9,7 @@ public class VehicleManager : MonoBehaviour
     public int currentVehicleIndex; // 当前由玩家控制的是列表中的第几辆车。
     public CameraFollow cameraFollow; // 用来跟随当前车辆的相机脚本。
     public bool autoDiscoverVehicles = true; // 是否在运行时扫描场景并自动注册车辆根对象。
+    public bool keepVehicleTuningsSynchronized = true; // 是否在运行时把当前车辆的参数同步到其它车辆，避免每辆车单独调参。
     public bool logSwitches = true; // 是否输出车辆清单和切车日志，便于排查输入和注册问题。
     public float resetLift = 0.35f; // 复位车辆时额外抬高的高度，避免直接和地面重叠。
 
@@ -73,6 +74,7 @@ public class VehicleManager : MonoBehaviour
         }
 
         EnforceSingleControlledVehicle();
+        SyncVehicleTuningsFromCurrent();
         HandleVehicleSwitchInput(keyboard);
         HandleResetInput(keyboard);
     }
@@ -422,6 +424,31 @@ public class VehicleManager : MonoBehaviour
             }
 
             // 运行时统一把其他车辆的动力和刚体基线对齐到主车，避免 Car2 每次进 Play 手感都飘。
+            vehicles[i].CopyTuningFrom(template);
+        }
+    }
+
+    private void SyncVehicleTuningsFromCurrent()
+    {
+        if (!keepVehicleTuningsSynchronized || vehicles == null || vehicles.Length <= 1)
+        {
+            return;
+        }
+
+        SimpleCarController template = CurrentVehicle;
+        if (template == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < vehicles.Length; i++)
+        {
+            if (vehicles[i] == null || vehicles[i] == template)
+            {
+                continue;
+            }
+
+            // 当前受控车辆就是调参模板：无论是 Inspector 改值还是运行时 UI 改值，其它车辆都会在下一帧跟上。
             vehicles[i].CopyTuningFrom(template);
         }
     }

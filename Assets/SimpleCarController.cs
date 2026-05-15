@@ -1,11 +1,22 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System.Text;
+using System.IO;
 
 public class SimpleCarController : MonoBehaviour
 {
+    private const string CurrentBuildTagValue = "coast_fix_scene_sync_2026_05_15_v6_power_x2";
+    private const float CurrentMotorAccelerationValue = 6400f;
+    private const float CurrentStartBoostAccelerationValue = 8400f;
+    private const float CurrentWheelTorqueScaleValue = 1.4f;
+    private const float CurrentCoastingDecelerationLowSpeedValue = 0.24f;
+    private const float CurrentCoastingDecelerationHighSpeedValue = 0.72f;
+    private const float CurrentCoastingDecelerationBlendSpeedValue = 30f;
+
     public bool isControlled = false; // 当前这辆车是否接收玩家输入。
-    public float motorAcceleration = 2600f; // 车辆已经滚起来之后的正常驱动力。
-    public float startBoostAcceleration = 3400f; // 低速起步时的额外驱动力，用来帮助车辆脱离静止状态。
+    public string debugBuildTag = CurrentBuildTagValue; // 仅用于在 Inspector 中确认当前场景实例是否真的吃到了这轮修改。
+    public float motorAcceleration = 6400f; // 车辆已经滚起来之后的正常驱动力；本轮按用户要求直接翻倍。
+    public float startBoostAcceleration = 8400f; // 低速起步时的额外驱动力；本轮按用户要求直接翻倍。
     public float turnAcceleration = 2.5f; // 基础转向强度；在轮驱动模式下会换算成前轮转角。
     public float highSpeedTurnFactor = 0.45f; // 车速升高后用于削弱转向能力的系数。
     public float brakeDamping = 4.5f; // 按下 Space 或需要快速收住车身时使用的附加阻尼/制动力度。
@@ -14,29 +25,42 @@ public class SimpleCarController : MonoBehaviour
     public float minTurnSpeed = 2.5f; // 备用刚体驱动模式下，达到该前后速度后才允许明显转向。
     public float steerAngularDamping = 6f; // 备用刚体驱动模式下用于压制低速原地乱扭的偏航阻尼。
     public float flippedDotThreshold = 0.55f; // 车身朝上程度低于该阈值时，判定为翻车并停止驱动输入。
-    public Vector3 centerOfMassOffset = new Vector3(0f, -0.4f, 0f); // 局部重心偏移，用来降低重心、减少翻车倾向。
+    public Vector3 centerOfMassOffset = new Vector3(0f, -0.12f, 0f); // 局部重心偏移；适度抬高重心，避免侧撞后像被强行扶正。
     public bool disableChildWheelColliders = false; // 旧调试开关；当前方案保持 WheelCollider 启用。
     public bool applyRuntimeRigidbodySettings = true; // 是否在运行时覆盖部分 Rigidbody 阻尼和插值设置。
     public float drivingLinearDamping = 0.015f; // 持续给油时使用的线性阻尼，应尽量小，避免前进动力被阻尼吃掉。
-    public float runtimeLinearDamping = 0.06f; // 松开油门后的基础空气阻力；保持较小，但要足够避免车辆长时间自己继续跑。
-    public float runtimeAngularDamping = 5f; // 车辆旋转时的基础角阻尼，用于减少晃动和过度旋转。
+    public float runtimeLinearDamping = 0.005f; // 松开油门后的基础空气阻力；进一步压低，避免车身阻尼本身就做出“像踩刹车”的效果。
+    public float coastingDampingStartSpeed = 4f; // 松油后达到该速度开始追加更明显的线性阻尼，避免中高速阶段假匀速滑太久。
+    public float coastingDampingFullSpeed = 9f; // 松油后达到该速度时，额外线性阻尼增益达到满值。
+    public float coastingDampingBoost = 0f; // 旧参数保留；当前不再依赖速度分层线性阻尼解决滑行问题，避免 20 km/h 平台和脚刹感。
+    public float coastingDecelerationLowSpeed = 0.24f; // 空挡滑行时的低速基础减速度；在不引回“突然一脚刹车”的前提下，再稍微加大一点尾速收口。
+    public float coastingDecelerationHighSpeed = 0.72f; // 空挡滑行时的高速基础减速度；小幅提高，让中高速松油更有自然减速感，但峰值仍低于 1m/s²。
+    public float coastingDecelerationBlendSpeed = 30f; // 空挡滑行减速度的过渡速度；速度越高减速越明显，速度越低减速越弱。
+    public bool debugCoastingAudit = false; // 是否开启空挡滑行来源审计日志。
+    public float debugCoastingAuditInterval = 0.2f; // 空挡滑行审计日志的输出间隔，避免每帧刷屏。
+    public bool debugCoastingAuditWriteToFile = true; // 是否把空挡滑行审计日志同步写入文本文件，方便完整保存。
+    public float runtimeAngularDamping = 2.2f; // 车辆旋转时的基础角阻尼；进一步降低，减少“快翻又被硬拉回正”的感觉。
     public bool useInactiveCollisionTuning = false; // 是否对非当前控制车辆启用更低阻力碰撞展示参数；当前默认关闭，避免切车后手感不一致。
     public float inactiveLinearDamping = 0.02f; // 非激活车辆使用的较低线性阻尼，兼顾被撞动和不过分打滑。
+    public float wheelColliderMass = 8f; // 轮子等效质量；适度降低，减轻“轮子像巨大飞轮一样难起转、难反转、松油后还继续推车”的感觉。
     public float wheelDampingRateScale = 0.35f; // 当前主线车辆的轮子滚动阻力缩放，降低后可减少“松油马上被拖死”和碰撞后过快耗能。
+    public float coastingWheelDampingScale = 1f; // 松油时驱动轮额外滚动阻力倍率；当前恢复为 1，避免轮子滚阻把滑行手感拖得像踩刹车。
     public float inactiveWheelDampingRate = 0.01f; // 非激活车辆轮子的滚动阻力，适度降低，避免像手刹锁死。
     public float inactiveForwardFrictionStiffness = 0.08f; // 非激活车辆前后向轮胎抓地力倍率，低于默认值但不至于完全打滑。
     public float inactiveSidewaysFrictionStiffness = 0.35f; // 非激活车辆侧向轮胎抓地力倍率，保留明显侧向阻力，避免侧门轻易被推走。
-    public float wheelTorqueScale = 1.25f; // 轮驱动模式下的扭矩倍率，避免把 Inspector 参数再额外放大很多倍。
+    public float wheelTorqueScale = 1.4f; // 轮驱动模式下的扭矩倍率；小幅上调，让当前动力参数体感更直接。
     public float reverseAccelerationScale = 0.4f; // 倒车驱动力倍率，通常应明显低于前进驱动力。
     public float brakeTorqueScale = 160f; // 刹车扭矩倍率，用来控制按下 Space 后的实际制动强度。
     public float coastBrakeTorque = 0f; // 旧参数保留；当前主线不再依赖轮上刹车模拟滑行，避免低速阶段突兀重刹。
     public float coastBrakeStartSpeed = 2.5f; // 低于该速度时不再施加空挡轮上阻力，避免 1 m/s 左右突然像重刹。
     public float coastBrakeFullSpeed = 10f; // 达到该速度后，空挡轮上阻力增长到设定上限。
-    public float coastingMotorDragTorque = 0f; // 旧参数保留；当前主线不再直接用反向 motorTorque 消残余轮速，避免符号错误时继续加速。
-    public float coastingMotorDragRpmFactor = 0f; // 旧参数保留；当前版本主要通过更早介入的轮速同步刹车处理松油后残余轮速。
-    public float coastingWheelSyncBrakeTorque = 120f; // 松开刹车且无油门时，用来把轮速拉回车速的同步刹车扭矩。
-    public float coastingWheelSyncRpmTolerance = 25f; // 轮速与车速对应转速相差超过该阈值时，认为存在明显“轮速滞后/超前”。
-    public float coastingWheelSyncMinSpeed = 1.5f; // 速度高于该阈值时就允许同步收轮速，但实际扭矩会按速度系数渐进放大，避免低速突兀。
+    public float coastingMotorDragTorque = 0f; // 松开油门后的基础发动机拖拽扭矩；当前设为 0，避免一松油就被固定扭矩猛拉一截。
+    public float coastingMotorDragRpmFactor = 0f; // 当前关闭基于轮速超差的额外反向拖拽，避免继续引入“松油像踩刹车”或平台速度。
+    public float coastingWheelSyncBrakeTorque = 0f; // 当前关闭空挡轮速同步刹车，避免松油阶段被 brakeTorque 主导。
+    public float coastingWheelSyncRpmTolerance = 30f; // 旧参数保留；当前同步刹车关闭后只作为容差占位。
+    public float coastingWheelSyncMinSpeed = 2f; // 只在中高速阶段才允许同步刹车介入，避免临近低速时突然被砍一截。
+    public float coastingOppositeSpinBrakeTorque = 220f; // 松油时如果驱动轮转速方向与车身前进方向相反，则用小刹车把异常反号轮速压掉，避免再次出现“松油继续加速”。
+    public float coastingOppositeSpinRpmThreshold = 120f; // 只有反号轮速达到该阈值后才介入，避免正常细小抖动被误判。
     public float lowSpeedCoastThreshold = 2.2f; // 低于该速度后开始补一点尾速收口，避免低速滑太久停不下来。
     public float lowSpeedCoastBrakeTorque = 0f; // 低速空挡尾速收口使用的小刹车扭矩；默认关闭，避免再次出现“低速突然一脚刹车”。
     public float directionChangeSpeedThreshold = 0.35f; // 当前进/后退方向与输入相反且速度高于该阈值时，先刹停再反向驱动。
@@ -75,6 +99,24 @@ public class SimpleCarController : MonoBehaviour
     private Vector3 pendingInactiveVelocityChange;
     private float reverseLockTimer;
     private int lastThrottleDirection;
+    private float coastingAuditTimer;
+    private float coastingAuditLastSpeed;
+    private bool auditAppliedWheelRollingResistance;
+    private bool auditAppliedWheelDrive;
+    private bool auditAppliedCoastingBodyDeceleration;
+    private bool auditUsedCoastingLinearDamping;
+    private bool auditUsedCoastingWheelSyncBrake;
+    private bool auditUsedCoastingMotorDrag;
+    private float auditCurrentLinearDamping;
+    private float auditCurrentBodyDeceleration;
+    private float auditCurrentWheelSyncBrakeTorque;
+    private float auditCurrentMotorDragTorque;
+    private float auditCurrentDriveMotorTorque;
+    private float auditCurrentDriveBrakeTorque;
+    private float auditCurrentOppositeSpinBrakeTorque;
+    private string coastingAuditFilePath;
+    private bool coastingAuditFileInitialized;
+    private float lastCoastingPlanarSpeed = -1f;
 
     public float CurrentSteerInput { get; private set; }
     public float CurrentThrottleInput { get; private set; }
@@ -94,6 +136,8 @@ public class SimpleCarController : MonoBehaviour
 
     private bool EnsureInitialized()
     {
+        ApplySerializedValueMigrationIfNeeded();
+
         if (rb != null)
         {
             return true;
@@ -116,6 +160,7 @@ public class SimpleCarController : MonoBehaviour
         normalDamping = GetLinearDamping();
         rb.centerOfMass = centerOfMassOffset;
         ApplyRuntimeColliderMaterial();
+        ApplyWheelMasses();
 
         for (int i = 0; i < cachedWheelColliders.Length; i++)
         {
@@ -125,12 +170,32 @@ public class SimpleCarController : MonoBehaviour
         return true;
     }
 
+    private void ApplySerializedValueMigrationIfNeeded()
+    {
+        if (debugBuildTag == CurrentBuildTagValue)
+        {
+            return;
+        }
+
+        // 旧场景实例如果还停留在之前的序列化值，进入 Play 时直接迁移到当前这轮确认过的动力参数，
+        // 避免“文件已更新但 Unity 内存里的对象还是旧值”继续浪费调试时间。
+        debugBuildTag = CurrentBuildTagValue;
+        motorAcceleration = CurrentMotorAccelerationValue;
+        startBoostAcceleration = CurrentStartBoostAccelerationValue;
+        wheelTorqueScale = CurrentWheelTorqueScaleValue;
+        coastingDecelerationLowSpeed = CurrentCoastingDecelerationLowSpeedValue;
+        coastingDecelerationHighSpeed = CurrentCoastingDecelerationHighSpeedValue;
+        coastingDecelerationBlendSpeed = CurrentCoastingDecelerationBlendSpeedValue;
+    }
+
     private void FixedUpdate()
     {
         if (rb == null)
         {
             return;
         }
+
+        ResetCoastingAuditFrame();
 
         UpdateMotionState();
         bool useWheelDrive = HasWheelDrive();
@@ -147,15 +212,12 @@ public class SimpleCarController : MonoBehaviour
             CurrentThrottleInput = 0f;
             CurrentSteerInput = 0f;
             SetLinearDamping(applyInactiveTuning ? inactiveLinearDamping : normalDamping);
-            ApplyWheelRollingResistance(applyInactiveTuning);
+            ApplyWheelRollingResistance(applyInactiveTuning, false);
             ApplyWheelSurfaceGrip(applyInactiveTuning);
             ResetWheelDrive();
             ApplyInactivePushAssist();
             return;
         }
-
-        ApplyWheelRollingResistance(false);
-        ApplyWheelSurfaceGrip(false);
 
         Keyboard keyboard = Keyboard.current;
         if (keyboard == null)
@@ -191,12 +253,15 @@ public class SimpleCarController : MonoBehaviour
         }
 
         bool brakePressed = keyboard.spaceKey.isPressed;
+        bool isCoastingInput = !brakePressed && Mathf.Abs(CurrentThrottleInput) < 0.01f;
+        ApplyWheelRollingResistance(false, isCoastingInput);
+        ApplyWheelSurfaceGrip(false);
         UpdateReverseLockState();
         float targetDamping = brakePressed
             ? brakeDamping
             : Mathf.Abs(CurrentThrottleInput) > 0.01f
                 ? drivingLinearDamping
-                : normalDamping;
+                : GetCoastingLinearDamping();
         SetLinearDamping(targetDamping);
 
         if (IsFlipped)
@@ -242,12 +307,16 @@ public class SimpleCarController : MonoBehaviour
 
             ApplySteerDamping(absForwardSpeed);
         }
+
+        ApplyCoastingBodyDeceleration(brakePressed);
+        EmitCoastingAudit(brakePressed, isCoastingInput);
     }
 
     private void Start()
     {
         // 启动时按轮子/碰撞体最低点做一次离地校正，避免初始姿态直接穿进地面。
         TryLiftVehicleAboveGround();
+        PrepareCoastingAuditFile();
     }
 
     public void SetControlled(bool controlled)
@@ -265,14 +334,14 @@ public class SimpleCarController : MonoBehaviour
             CurrentSteerInput = 0f;
             bool applyInactiveTuning = useInactiveCollisionTuning;
             SetLinearDamping(applyInactiveTuning ? inactiveLinearDamping : normalDamping);
-            ApplyWheelRollingResistance(applyInactiveTuning);
+            ApplyWheelRollingResistance(applyInactiveTuning, false);
             ApplyWheelSurfaceGrip(applyInactiveTuning);
             ResetWheelDrive();
             return;
         }
 
         SetLinearDamping(normalDamping);
-        ApplyWheelRollingResistance(false);
+        ApplyWheelRollingResistance(false, false);
         ApplyWheelSurfaceGrip(false);
     }
 
@@ -306,8 +375,9 @@ public class SimpleCarController : MonoBehaviour
         }
 
         ApplyRuntimeColliderMaterial();
+        ApplyWheelMasses();
         bool applyInactiveTuning = !isControlled && useInactiveCollisionTuning;
-        ApplyWheelRollingResistance(applyInactiveTuning);
+        ApplyWheelRollingResistance(applyInactiveTuning, false);
         ApplyWheelSurfaceGrip(applyInactiveTuning);
 
         if (!isControlled)
@@ -316,7 +386,7 @@ public class SimpleCarController : MonoBehaviour
             return;
         }
 
-        float targetDamping = Mathf.Abs(CurrentThrottleInput) > 0.01f ? drivingLinearDamping : normalDamping;
+        float targetDamping = Mathf.Abs(CurrentThrottleInput) > 0.01f ? drivingLinearDamping : GetCoastingLinearDamping();
         SetLinearDamping(targetDamping);
     }
 
@@ -499,6 +569,7 @@ public class SimpleCarController : MonoBehaviour
 
     private void ApplyWheelDrive(float horizontalSpeed, bool brakePressed)
     {
+        auditAppliedWheelDrive = true;
         float absForwardSpeed = Mathf.Abs(CurrentForwardSpeed);
         float speedFactor = Mathf.InverseLerp(minTurnSpeed, maxSpeed, absForwardSpeed);
         // 这里不是做真实转向几何，而是课程级的简化前轮转向：低速角度更大，高速自动收一点。
@@ -536,11 +607,11 @@ public class SimpleCarController : MonoBehaviour
             brakeTorque = Mathf.Max(brakeTorque, stationaryReverseBrakeTorque);
         }
 
-        if (isCoasting && absForwardSpeed > coastBrakeStartSpeed)
+        if (isCoasting)
         {
-            // 空挡阻力随速度逐步增强：低速不生硬，高速也不会像完全无阻力一样继续蹿。
-            float coastFactor = Mathf.InverseLerp(coastBrakeStartSpeed, Mathf.Max(coastBrakeFullSpeed, coastBrakeStartSpeed + 0.01f), absForwardSpeed);
-            brakeTorque = Mathf.Max(brakeTorque, coastBrakeTorque * coastFactor);
+            // 滑行状态下不再使用任何轮上制动/反拖主线，避免脚刹感和平台速度。
+            motorTorque = 0f;
+            brakeTorque = 0f;
         }
 
         if (holdBrakeAtIdle && Mathf.Abs(CurrentThrottleInput) < 0.01f && absForwardSpeed < minTurnSpeed)
@@ -549,18 +620,30 @@ public class SimpleCarController : MonoBehaviour
             brakeTorque = Mathf.Max(brakeTorque, brakeDamping * 150f);
         }
 
-        float syncBrakeTorque = GetCoastingWheelSyncBrakeTorque(brakePressed, absForwardSpeed, averageDriveWheelRpm);
-        if (syncBrakeTorque > 0f)
+        float oppositeSpinBrakeTorque = GetCoastingOppositeSpinBrakeTorque(brakePressed, absForwardSpeed, averageDriveWheelRpm);
+        if (oppositeSpinBrakeTorque > 0f)
+        {
+            brakeTorque = Mathf.Max(brakeTorque, oppositeSpinBrakeTorque);
+        }
+
+        float syncBrakeTorque = isCoasting ? 0f : GetCoastingWheelSyncBrakeTorque(brakePressed, absForwardSpeed, averageDriveWheelRpm);
+        if (!isCoasting && syncBrakeTorque > 0f)
         {
             // 松开油门后如果轮子仍明显快于车速，对同步刹车做比例控制，避免过晚介入或低速阶段突然补重刹。
             brakeTorque = Mathf.Max(brakeTorque, syncBrakeTorque);
         }
 
-        if (isCoasting && absForwardSpeed < lowSpeedCoastThreshold)
+        if (!isCoasting && absForwardSpeed < lowSpeedCoastThreshold)
         {
             float tailBrakeFactor = 1f - Mathf.Clamp01(absForwardSpeed / Mathf.Max(lowSpeedCoastThreshold, 0.01f));
             brakeTorque = Mathf.Max(brakeTorque, lowSpeedCoastBrakeTorque * tailBrakeFactor);
         }
+
+        auditCurrentWheelSyncBrakeTorque = syncBrakeTorque;
+        auditCurrentOppositeSpinBrakeTorque = oppositeSpinBrakeTorque;
+        auditCurrentMotorDragTorque = 0f;
+        auditCurrentDriveMotorTorque = motorTorque;
+        auditCurrentDriveBrakeTorque = brakeTorque;
 
         for (int i = 0; i < steeringWheels.Length; i++)
         {
@@ -610,6 +693,7 @@ public class SimpleCarController : MonoBehaviour
 
     private float GetCoastingWheelSyncBrakeTorque(bool brakePressed, float absForwardSpeed, float averageDriveWheelRpm)
     {
+        auditUsedCoastingWheelSyncBrake = true;
         if (brakePressed || Mathf.Abs(CurrentThrottleInput) > 0.01f || absForwardSpeed < coastingWheelSyncMinSpeed)
         {
             return 0f;
@@ -622,12 +706,60 @@ public class SimpleCarController : MonoBehaviour
             return 0f;
         }
 
-        float syncFactor = Mathf.Clamp01(rpmOverspeed / Mathf.Max(coastingWheelSyncRpmTolerance * 3f, 1f));
+        float syncFactor = Mathf.Clamp01(rpmOverspeed / Mathf.Max(coastingWheelSyncRpmTolerance, 1f));
         float speedFactor = Mathf.InverseLerp(
             coastingWheelSyncMinSpeed,
             Mathf.Max(coastBrakeFullSpeed, coastingWheelSyncMinSpeed + 0.01f),
             absForwardSpeed);
         return coastingWheelSyncBrakeTorque * syncFactor * speedFactor;
+    }
+
+    private float GetCoastingOppositeSpinBrakeTorque(bool brakePressed, float absForwardSpeed, float averageDriveWheelRpm)
+    {
+        if (brakePressed || Mathf.Abs(CurrentThrottleInput) > 0.01f || absForwardSpeed < coastingWheelSyncMinSpeed)
+        {
+            return 0f;
+        }
+
+        if (Mathf.Abs(CurrentForwardSpeed) < 0.01f || Mathf.Abs(averageDriveWheelRpm) < coastingOppositeSpinRpmThreshold)
+        {
+            return 0f;
+        }
+
+        // 车身仍在前进，但驱动轮 rpm 已经整体反号暴冲时，说明轮胎系统正在用错误轮速把车继续拖着跑。
+        if (Mathf.Sign(CurrentForwardSpeed) == Mathf.Sign(averageDriveWheelRpm))
+        {
+            return 0f;
+        }
+
+        float rpmFactor = Mathf.Clamp01(Mathf.Abs(averageDriveWheelRpm) / (coastingOppositeSpinRpmThreshold * 4f));
+        float speedFactor = Mathf.InverseLerp(
+            coastingWheelSyncMinSpeed,
+            Mathf.Max(coastingDecelerationBlendSpeed, coastingWheelSyncMinSpeed + 0.01f),
+            absForwardSpeed);
+        return coastingOppositeSpinBrakeTorque * rpmFactor * speedFactor;
+    }
+
+    private float GetCoastingMotorDragTorque(bool brakePressed, float absForwardSpeed, float averageDriveWheelRpm)
+    {
+        auditUsedCoastingMotorDrag = true;
+        if (brakePressed || Mathf.Abs(CurrentThrottleInput) > 0.01f || absForwardSpeed < coastingWheelSyncMinSpeed)
+        {
+            return 0f;
+        }
+
+        float expectedRollingRpm = GetExpectedRollingRpm(absForwardSpeed);
+        float rpmOverspeed = Mathf.Abs(averageDriveWheelRpm) - expectedRollingRpm - coastingWheelSyncRpmTolerance;
+        if (rpmOverspeed <= 0f)
+        {
+            return 0f;
+        }
+
+        float speedFactor = Mathf.InverseLerp(
+            coastingWheelSyncMinSpeed,
+            Mathf.Max(coastBrakeFullSpeed, coastingWheelSyncMinSpeed + 0.01f),
+            absForwardSpeed);
+        return (coastingMotorDragTorque + rpmOverspeed * coastingMotorDragRpmFactor) * speedFactor * speedFactor;
     }
 
     private float GetExpectedRollingRpm(float absForwardSpeed)
@@ -658,6 +790,56 @@ public class SimpleCarController : MonoBehaviour
         float averageRadius = radiusSum / validCount;
         float wheelCircumference = 2f * Mathf.PI * averageRadius;
         return wheelCircumference > 0.0001f ? (absForwardSpeed / wheelCircumference) * 60f : 0f;
+    }
+
+    private void ApplyCoastingBodyDeceleration(bool brakePressed)
+    {
+        if (rb == null || brakePressed || Mathf.Abs(CurrentThrottleInput) > 0.01f)
+        {
+            auditCurrentBodyDeceleration = 0f;
+            lastCoastingPlanarSpeed = -1f;
+            return;
+        }
+
+        Vector3 planarVelocity = Vector3.ProjectOnPlane(GetLinearVelocity(), Vector3.up);
+        float speed = planarVelocity.magnitude;
+        if (speed < 0.05f)
+        {
+            auditCurrentBodyDeceleration = 0f;
+            lastCoastingPlanarSpeed = -1f;
+            return;
+        }
+
+        float speedFactor = Mathf.Clamp01(speed / Mathf.Max(coastingDecelerationBlendSpeed, 0.01f));
+        float deceleration = Mathf.Lerp(coastingDecelerationLowSpeed, coastingDecelerationHighSpeed, speedFactor);
+
+        float currentSpeed = speed;
+        if (lastCoastingPlanarSpeed >= 0f)
+        {
+            float maxAllowedSpeed = Mathf.Max(0f, lastCoastingPlanarSpeed - deceleration * Time.fixedDeltaTime);
+            if (currentSpeed > maxAllowedSpeed)
+            {
+                Vector3 correctedPlanarVelocity = planarVelocity.normalized * maxAllowedSpeed;
+                Vector3 verticalVelocity = Vector3.Project(GetLinearVelocity(), Vector3.up);
+#if UNITY_6000_0_OR_NEWER
+                rb.linearVelocity = correctedPlanarVelocity + verticalVelocity;
+#else
+                rb.velocity = correctedPlanarVelocity + verticalVelocity;
+#endif
+                currentSpeed = maxAllowedSpeed;
+            }
+        }
+
+        lastCoastingPlanarSpeed = currentSpeed;
+        auditAppliedCoastingBodyDeceleration = true;
+        auditCurrentBodyDeceleration = deceleration;
+    }
+
+    private float GetCoastingLinearDamping()
+    {
+        auditUsedCoastingLinearDamping = true;
+        // 当前滑行主线已经改成“单一车身减速度”，这里不再额外叠速度分层阻尼，避免再次做出 20 km/h 平台和脚刹感。
+        return runtimeLinearDamping;
     }
 
     private void ApplyInactivePushAssist()
@@ -870,8 +1052,9 @@ public class SimpleCarController : MonoBehaviour
         }
     }
 
-    private void ApplyWheelRollingResistance(bool inactive)
+    private void ApplyWheelRollingResistance(bool inactive, bool isCoasting)
     {
+        auditAppliedWheelRollingResistance = true;
         if (cachedWheelColliders == null || defaultWheelDampingRates == null)
         {
             return;
@@ -884,9 +1067,37 @@ public class SimpleCarController : MonoBehaviour
                 continue;
             }
 
-            cachedWheelColliders[i].wheelDampingRate = inactive
-                ? inactiveWheelDampingRate
-                : defaultWheelDampingRates[i] * wheelDampingRateScale;
+            if (inactive)
+            {
+                cachedWheelColliders[i].wheelDampingRate = inactiveWheelDampingRate;
+                continue;
+            }
+
+            float dampingRate = defaultWheelDampingRates[i] * wheelDampingRateScale;
+            if (isCoasting)
+            {
+                dampingRate *= coastingWheelDampingScale;
+            }
+
+            cachedWheelColliders[i].wheelDampingRate = dampingRate;
+        }
+    }
+
+    private void ApplyWheelMasses()
+    {
+        if (cachedWheelColliders == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < cachedWheelColliders.Length; i++)
+        {
+            if (cachedWheelColliders[i] == null)
+            {
+                continue;
+            }
+
+            cachedWheelColliders[i].mass = wheelColliderMass;
         }
     }
 
@@ -1096,11 +1307,170 @@ public class SimpleCarController : MonoBehaviour
 
     private void SetLinearDamping(float value)
     {
+        auditCurrentLinearDamping = value;
 #if UNITY_6000_0_OR_NEWER
         rb.linearDamping = value;
 #else
         rb.drag = value;
 #endif
+    }
+
+    private void ResetCoastingAuditFrame()
+    {
+        auditAppliedWheelRollingResistance = false;
+        auditAppliedWheelDrive = false;
+        auditAppliedCoastingBodyDeceleration = false;
+        auditUsedCoastingLinearDamping = false;
+        auditUsedCoastingWheelSyncBrake = false;
+        auditUsedCoastingMotorDrag = false;
+        auditCurrentLinearDamping = 0f;
+        auditCurrentBodyDeceleration = 0f;
+        auditCurrentWheelSyncBrakeTorque = 0f;
+        auditCurrentOppositeSpinBrakeTorque = 0f;
+        auditCurrentMotorDragTorque = 0f;
+        auditCurrentDriveMotorTorque = 0f;
+        auditCurrentDriveBrakeTorque = 0f;
+    }
+
+    private void EmitCoastingAudit(bool brakePressed, bool isCoastingInput)
+    {
+        if (!debugCoastingAudit || !isControlled || !isCoastingInput || brakePressed || rb == null)
+        {
+            coastingAuditTimer = 0f;
+            coastingAuditLastSpeed = SpeedMetersPerSecond;
+            return;
+        }
+
+        coastingAuditTimer += Time.fixedDeltaTime;
+        if (coastingAuditTimer < debugCoastingAuditInterval)
+        {
+            return;
+        }
+
+        float interval = Mathf.Max(coastingAuditTimer, 0.0001f);
+        float speedNow = SpeedMetersPerSecond;
+        float deltaSpeed = speedNow - coastingAuditLastSpeed;
+        coastingAuditTimer = 0f;
+        coastingAuditLastSpeed = speedNow;
+
+        StringBuilder sb = new StringBuilder();
+        sb.Append("[CoastAudit] ")
+          .Append(name)
+          .Append(" speed=")
+          .Append(speedNow.ToString("F2"))
+          .Append("m/s(")
+          .Append((speedNow * 3.6f).ToString("F1"))
+          .Append("km/h)")
+          .Append(" throttle=")
+          .Append(CurrentThrottleInput.ToString("F2"))
+          .Append(" brake=")
+          .Append(brakePressed)
+          .Append(" coasting=")
+          .Append(isCoastingInput)
+          .Append(" damping=")
+          .Append(auditCurrentLinearDamping.ToString("F3"))
+          .Append(" bodyDecel=")
+          .Append(auditCurrentBodyDeceleration.ToString("F3"))
+          .Append(" deltaV=")
+          .Append((deltaSpeed / interval).ToString("F3"))
+          .Append("m/s²")
+          .Append(" wheelRes=")
+          .Append(auditAppliedWheelRollingResistance)
+          .Append(" wheelDrive=")
+          .Append(auditAppliedWheelDrive)
+          .Append(" coastBody=")
+          .Append(auditAppliedCoastingBodyDeceleration)
+          .Append(" coastDamping=")
+          .Append(auditUsedCoastingLinearDamping)
+          .Append(" syncBrake=")
+          .Append(auditUsedCoastingWheelSyncBrake)
+          .Append(":")
+          .Append(auditCurrentWheelSyncBrakeTorque.ToString("F1"))
+          .Append(" oppositeSpinBrake=")
+          .Append(auditCurrentOppositeSpinBrakeTorque.ToString("F1"))
+          .Append(" motorDrag=")
+          .Append(auditUsedCoastingMotorDrag)
+          .Append(":")
+          .Append(auditCurrentMotorDragTorque.ToString("F1"))
+          .Append(" driveMotor=")
+          .Append(auditCurrentDriveMotorTorque.ToString("F1"))
+          .Append(" driveBrake=")
+          .Append(auditCurrentDriveBrakeTorque.ToString("F1"));
+
+        if (cachedWheelColliders != null)
+        {
+            for (int i = 0; i < cachedWheelColliders.Length; i++)
+            {
+                WheelCollider wheel = cachedWheelColliders[i];
+                if (wheel == null)
+                {
+                    continue;
+                }
+
+                sb.Append(" | W")
+                  .Append(i)
+                  .Append(" rpm=")
+                  .Append(wheel.rpm.ToString("F1"))
+                  .Append(" motor=")
+                  .Append(wheel.motorTorque.ToString("F1"))
+                  .Append(" brake=")
+                  .Append(wheel.brakeTorque.ToString("F1"))
+                  .Append(" damp=")
+                  .Append(wheel.wheelDampingRate.ToString("F3"))
+                  .Append(" grounded=")
+                  .Append(wheel.isGrounded);
+            }
+        }
+
+        string line = sb.ToString();
+        Debug.Log(line);
+        AppendCoastingAuditLine(line);
+    }
+
+    private void PrepareCoastingAuditFile()
+    {
+        if (!debugCoastingAuditWriteToFile || coastingAuditFileInitialized)
+        {
+            return;
+        }
+
+        string docsDirectory = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "docs"));
+        if (!Directory.Exists(docsDirectory))
+        {
+            Directory.CreateDirectory(docsDirectory);
+        }
+
+        coastingAuditFilePath = Path.Combine(docsDirectory, "coasting_audit_log.txt");
+        string header =
+            "[CoastAudit] session start " +
+            System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") +
+            System.Environment.NewLine;
+        File.WriteAllText(coastingAuditFilePath, header, Encoding.UTF8);
+        coastingAuditFileInitialized = true;
+        Debug.Log("[CoastAudit] writing audit log to " + coastingAuditFilePath);
+    }
+
+    private void AppendCoastingAuditLine(string line)
+    {
+        if (!debugCoastingAuditWriteToFile)
+        {
+            return;
+        }
+
+        if (!coastingAuditFileInitialized)
+        {
+            PrepareCoastingAuditFile();
+        }
+
+        if (string.IsNullOrEmpty(coastingAuditFilePath))
+        {
+            return;
+        }
+
+        File.AppendAllText(
+            coastingAuditFilePath,
+            line + System.Environment.NewLine,
+            Encoding.UTF8);
     }
 
     private void SetAngularDamping(float value)

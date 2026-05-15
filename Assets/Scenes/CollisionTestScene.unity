@@ -441,6 +441,7 @@ MonoBehaviour:
   currentVehicleIndex: 0
   cameraFollow: {fileID: 459096068}
   autoDiscoverVehicles: 1
+  keepVehicleTuningsSynchronized: 1
   logSwitches: 1
   resetLift: 0.35
 --- !u!114 &459096070
@@ -481,8 +482,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SimpleCarController
   isControlled: 1
-  motorAcceleration: 2600
-  startBoostAcceleration: 3400
+  debugBuildTag: coast_fix_scene_sync_2026_05_15_v6_power_x2
+  motorAcceleration: 6400
+  startBoostAcceleration: 8400
   turnAcceleration: 2.5
   highSpeedTurnFactor: 0.45
   brakeDamping: 4.5
@@ -491,19 +493,29 @@ MonoBehaviour:
   minTurnSpeed: 2.5
   steerAngularDamping: 6
   flippedDotThreshold: 0.55
-  centerOfMassOffset: {x: 0, y: -0.4, z: 0}
+  centerOfMassOffset: {x: 0, y: -0.12, z: 0}
   disableChildWheelColliders: 0
   applyRuntimeRigidbodySettings: 1
   drivingLinearDamping: 0.015
-  runtimeLinearDamping: 0.06
-  runtimeAngularDamping: 5
+  runtimeLinearDamping: 0.005
+  coastingDampingStartSpeed: 4
+  coastingDampingFullSpeed: 9
+  coastingDampingBoost: 0
+  coastingDecelerationLowSpeed: 0.24
+  coastingDecelerationHighSpeed: 0.72
+  coastingDecelerationBlendSpeed: 30
+  debugCoastingAudit: 1
+  debugCoastingAuditInterval: 0.2
+  runtimeAngularDamping: 2.2
   useInactiveCollisionTuning: 0
   inactiveLinearDamping: 0.02
+  wheelColliderMass: 8
   wheelDampingRateScale: 0.35
+  coastingWheelDampingScale: 1
   inactiveWheelDampingRate: 0.01
   inactiveForwardFrictionStiffness: 0.08
   inactiveSidewaysFrictionStiffness: 0.35
-  wheelTorqueScale: 1.25
+  wheelTorqueScale: 1.4
   reverseAccelerationScale: 0.4
   brakeTorqueScale: 160
   coastBrakeTorque: 0
@@ -511,9 +523,11 @@ MonoBehaviour:
   coastBrakeFullSpeed: 10
   coastingMotorDragTorque: 0
   coastingMotorDragRpmFactor: 0
-  coastingWheelSyncBrakeTorque: 120
-  coastingWheelSyncRpmTolerance: 25
-  coastingWheelSyncMinSpeed: 1.5
+  coastingWheelSyncBrakeTorque: 0
+  coastingWheelSyncRpmTolerance: 30
+  coastingWheelSyncMinSpeed: 2
+  coastingOppositeSpinBrakeTorque: 220
+  coastingOppositeSpinRpmThreshold: 120
   lowSpeedCoastThreshold: 2.2
   lowSpeedCoastBrakeTorque: 0
   directionChangeSpeedThreshold: 0.35
@@ -1097,7 +1111,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -0, y: 0, z: -0.04}
-  m_LocalScale: {x: 100, y: 100, z: 100}
+  m_LocalScale: {x: 100000, y: 1, z: 100000}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
