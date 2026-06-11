@@ -229,11 +229,16 @@ public class VehicleManager : MonoBehaviour
         Rigidbody rb = vehicle.CachedRigidbody != null ? vehicle.CachedRigidbody : vehicle.GetComponent<Rigidbody>();
         VehicleState state = initialStates[index];
 
-        vehicle.transform.SetPositionAndRotation(state.position + Vector3.up * resetLift, state.rotation);
+        Vector3 resetPosition = state.position + Vector3.up * resetLift;
+        vehicle.transform.SetPositionAndRotation(resetPosition, state.rotation);
+        resetPosition = vehicle.GetSafeGroundedPosition(state.position, resetLift);
+        vehicle.transform.SetPositionAndRotation(resetPosition, state.rotation);
         vehicle.RefreshCenterOfMass();
 
         if (rb != null)
         {
+            rb.position = resetPosition;
+            rb.rotation = state.rotation;
 #if UNITY_6000_0_OR_NEWER
             rb.linearVelocity = Vector3.zero;
 #else

@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using System;
 using System.Text;
 using System.IO;
 
@@ -153,6 +154,38 @@ public class SimpleCarController : MonoBehaviour
     public Rigidbody CachedRigidbody => rb;
     public float SpeedMetersPerSecond => rb == null ? 0f : Vector3.ProjectOnPlane(GetLinearVelocity(), Vector3.up).magnitude;
     public float SpeedKilometersPerHour => SpeedMetersPerSecond * 3.6f;
+
+    public Vector3 GetSafeGroundedPosition(Vector3 candidatePosition, float extraGroundClearance)
+    {
+        EnsureInitialized();
+
+        if (!TryGetLocalLowestPoint(out float localLowestPoint))
+        {
+            return candidatePosition + Vector3.up * Mathf.Max(extraGroundClearance, startGroundClearance);
+        }
+
+        Vector3 rayOrigin = candidatePosition + Vector3.up * 30f;
+        RaycastHit[] hits = Physics.RaycastAll(rayOrigin, Vector3.down, 80f, ~0, QueryTriggerInteraction.Ignore);
+        if (hits == null || hits.Length == 0)
+        {
+            return candidatePosition + Vector3.up * Mathf.Max(extraGroundClearance, startGroundClearance);
+        }
+
+        Array.Sort(hits, (left, right) => left.distance.CompareTo(right.distance));
+        for (int i = 0; i < hits.Length; i++)
+        {
+            Collider hitCollider = hits[i].collider;
+            if (hitCollider == null || hitCollider.transform.IsChildOf(transform))
+            {
+                continue;
+            }
+
+            candidatePosition.y = hits[i].point.y - localLowestPoint + Mathf.Max(extraGroundClearance, startGroundClearance);
+            return candidatePosition;
+        }
+
+        return candidatePosition + Vector3.up * Mathf.Max(extraGroundClearance, startGroundClearance);
+    }
 
     private void Awake()
     {
@@ -1407,20 +1440,40 @@ public class SimpleCarController : MonoBehaviour
 
         startPoseAdjusted = true;
 
-        float localLowestPoint = float.PositiveInfinity;
-
-        for (int i = 0; i < cachedWheelColliders.Length; i++)
+        if (!TryGetLocalLowestPoint(out _))
         {
-            WheelCollider wheel = cachedWheelColliders[i];
-            if (wheel == null)
-            {
-                continue;
-            }
+            return;
+        }
 
-            float wheelBottom = wheel.transform.localPosition.y + wheel.center.y - wheel.radius;
-            if (wheelBottom < localLowestPoint)
+        Vector3 safePosition = GetSafeGroundedPosition(transform.position, startGroundClearance);
+        if (safePosition.y > transform.position.y)
+        {
+            transform.position = safePosition;
+            rb.position = safePosition;
+            rb.Sleep();
+            rb.WakeUp();
+        }
+    }
+
+    private bool TryGetLocalLowestPoint(out float localLowestPoint)
+    {
+        localLowestPoint = float.PositiveInfinity;
+
+        if (cachedWheelColliders != null)
+        {
+            for (int i = 0; i < cachedWheelColliders.Length; i++)
             {
-                localLowestPoint = wheelBottom;
+                WheelCollider wheel = cachedWheelColliders[i];
+                if (wheel == null)
+                {
+                    continue;
+                }
+
+                float wheelBottom = wheel.transform.localPosition.y + wheel.center.y - wheel.radius;
+                if (wheelBottom < localLowestPoint)
+                {
+                    localLowestPoint = wheelBottom;
+                }
             }
         }
 
@@ -1446,25 +1499,10 @@ public class SimpleCarController : MonoBehaviour
 
         if (float.IsPositiveInfinity(localLowestPoint))
         {
-            return;
+            return false;
         }
 
-        Vector3 rayOrigin = transform.position + Vector3.up * 5f;
-        if (!Physics.Raycast(rayOrigin, Vector3.down, out RaycastHit hit, 20f, ~0, QueryTriggerInteraction.Ignore))
-        {
-            return;
-        }
-
-        float desiredY = hit.point.y - localLowestPoint + startGroundClearance;
-        if (transform.position.y < desiredY)
-        {
-            Vector3 liftedPosition = transform.position;
-            liftedPosition.y = desiredY;
-            transform.position = liftedPosition;
-            rb.position = liftedPosition;
-            rb.Sleep();
-            rb.WakeUp();
-        }
+        return true;
     }
 
     private Vector3 GetLinearVelocity()

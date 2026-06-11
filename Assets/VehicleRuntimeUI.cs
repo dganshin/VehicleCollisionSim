@@ -116,7 +116,6 @@ public class VehicleRuntimeUI : MonoBehaviour
         GUILayout.Label($"重力加速度：{Physics.gravity.magnitude:F2} m/s²");
         GUILayout.Label($"估算车长：{estimatedLength:F2} m");
         GUILayout.Label($"翻车状态：{(vehicle.IsFlipped ? "是" : "否")}");
-        GUILayout.Label($"调参版本：{vehicle.debugBuildTag}");
     }
 
     private void DrawActionSection()
