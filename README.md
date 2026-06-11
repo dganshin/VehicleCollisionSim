@@ -1,276 +1,305 @@
 # 基于 Unity 的车辆碰撞虚拟仿真与物理参数可视化系统
 
-## 项目简介
+本项目是车辆碰撞虚拟仿真课程设计项目，目标是在 Unity 中搭建一个可运行、可演示、可验证的车辆碰撞仿真系统。
 
-本项目为课程设计项目，目标是基于 Unity 搭建一个可演示的车辆碰撞虚拟仿真系统。  
-当前版本重点完成了以下能力：
 
-- 多车辆基础驱动与切换
-- 车辆与车辆的物理碰撞演示
-- 车辆与环境对象的物理碰撞演示
-- 车辆运动驱动、阻尼、摩擦等参数的运行时调节
-- 物理参数与基础状态的可视化显示
 
-本项目采用课程级简化方案，优先保证：
+## 1. 项目功能概述
 
-- 功能闭环
-- 演示稳定性
-- 参数可解释性
+当前项目已经实现的核心功能包括：
 
-不以工业级真实车辆动力学或真实车损形变为主要目标。
+- 车辆基础驱动：前进、后退、转向、刹车。
+- 多车辆管理：支持运行时切换当前控制车辆。
+- 车辆与车辆碰撞：可演示车辆之间的基础物理碰撞。
+- 车辆与环境对象碰撞：可与墙体、建筑、桥墩、树木、动态箱子、路障、交通锥等对象发生碰撞。
+- 运行时参数面板：可查看并调节驱动力、刹车、阻尼、摩擦、质量、重心等常用物理参数。
+- 物理量可视化：显示速度、前向速度、估算加速度、估算纵向合力、质量、重力加速度、估算车长等读数。
 
-## 技术路线与方案选择
 
-前期曾调研和尝试：
 
-- PyBullet
-- UE5
-- Unity
+## 2. 环境要求
 
-最终选择 Unity，主要原因是：
+建议使用与本仓库一致的环境打开项目，避免 Unity 版本差异导致资源导入、脚本编译或渲染管线异常。
 
-- 资源生态成熟，适合快速搭建课程展示
-- 车辆、场景、UI、碰撞、脚本整合成本较低
-- 更适合短周期课程交付
+| 项目 | 要求 |
+| --- | --- |
+| 操作系统 | Windows 11 |
+| Unity Hub | 建议安装 |
+| Unity Editor | `6000.3.10f1` |
+| 脚本 IDE | Visual Studio 2022 或 JetBrains Rider，非必须 |
+| 输入系统 | Unity Input System |
+| 渲染管线 | Universal Render Pipeline |
 
-## 开发环境
+Unity 精确版本记录在：
 
-- 引擎：Unity 6
-- 项目位置：`D:\BaiduSyncdisk\repo\VehicleCollisionSim`
-- 输入方案：Unity 新 Input System
+```text
+ProjectSettings/ProjectVersion.txt
+```
 
-## 资源来源
+当前项目版本为：
+
+```text
+6000.3.10f1
+```
+
+## 3. 获取代码
+
+如果通过 Git 获取项目：
+
+```powershell
+git clone <仓库地址>
+cd VehicleCollisionSim
+```
+
+如果通过压缩包获取项目，请解压后进入项目根目录。项目根目录应包含以下关键目录：
+
+```text
+Assets/
+Packages/
+ProjectSettings/
+README.md
+VehicleCollisionSim.sln
+```
+
+
+## 4. 首次打开项目
+
+1. 打开 Unity Hub。
+2. 点击 `Add` 或 `添加项目`。
+3. 选择本仓库根目录，例如：
+
+```text
+D:\BaiduSyncdisk\repo\VehicleCollisionSim
+```
+
+4. 使用 Unity Editor `6000.3.10f1` 打开项目。
+5. 等待 Unity 完成首次导入、脚本编译和包恢复。
+6. 如果 Unity 弹出是否启用 New Input System 的提示，请选择启用，并按提示重启 Unity Editor。
+7. 等待 `Console` 中没有红色编译错误后，再运行场景。
+
+首次打开项目可能需要几分钟，这是 Unity 导入资源和恢复依赖的正常过程。
+
+## 5. 依赖包说明
+
+项目依赖由 Unity 的包管理文件维护：
+
+```text
+Packages/manifest.json
+```
+
+首次打开项目时，Unity 会自动根据该文件恢复依赖。主要依赖包括：
+
+- `com.unity.inputsystem`：新输入系统，用于键盘输入。
+- `com.unity.ugui`：运行时 UI 面板。
+- `com.unity.render-pipelines.universal`：URP 渲染管线。
+- `com.unity.test-framework`：Unity 测试框架。
+- `com.unity.modules.physics`：Unity 3D 物理系统。
+- `com.unity.modules.vehicles`：车辆相关 Unity 模块。
+
+正常情况下不需要手动逐个安装这些包。如果包恢复失败，请先检查网络连接和 `Packages/manifest.json` 是否存在。
+
+## 6. 运行项目
+
+按照以下步骤运行验收场景：
+
+1. 在 Unity Project 面板中打开场景：
+
+```text
+Assets/Scenes/CollisionTestScene.unity
+```
+
+2. 确认场景层级中存在以下关键对象：
+
+```text
+Main Camera
+Car1
+Car2
+Car3
+Car4
+TestFieldManager
+```
+
+3. 点击 Unity 顶部的 `Play` 按钮进入运行模式。
+4. 点击 `Game` 窗口，使键盘输入焦点进入游戏窗口。
+5. 按下操作键进行车辆控制和碰撞测试。
+
+如果按键没有反应，通常是因为 `Game` 窗口没有获得焦点，请先点击 `Game` 窗口再操作。
+
+## 7. 操作说明
+
+| 操作 | 按键 |
+| --- | --- |
+| 前进 | `W` |
+| 后退 | `S` |
+| 左转 | `A` |
+| 右转 | `D` |
+| 刹车 | `Space` |
+| 切换车辆 | `1`、`2`、`3`、`4` |
+| 重置当前车辆 | `R` |
+| 重置全部车辆 | `Shift + R` |
+| 显示或隐藏参数面板 | `F2` |
+| 鼠标绕车观察 | 移动鼠标 |
+
+当前场景中已配置 `Car1`、`Car2`、`Car3`、`Car4` 四辆车，对应使用 `1`、`2`、`3`、`4` 进行车辆切换。
+
+## 8. 验收建议流程
+
+建议按以下顺序验证项目功能：
+
+1. 启动 `Assets/Scenes/CollisionTestScene.unity`。
+2. 点击 `Play`，进入运行模式。
+3. 点击 `Game` 窗口获取输入焦点。
+4. 使用 `W/S/A/D` 驾驶当前车辆，确认车辆可以前进、后退和转向。
+5. 使用 `Space` 刹车，确认车辆可减速或停止。
+6. 使用 `1`、`2`、`3`、`4` 切换车辆，确认多车管理功能可用。
+7. 驾驶车辆撞向另一辆车，验证车车物理碰撞。
+8. 驾驶车辆撞向墙体、建筑、桥墩、树木、箱子、路障或交通锥，验证车辆与环境对象碰撞。
+9. 按 `F2` 打开参数面板，调整驱动力、刹车、阻尼、摩擦、质量等参数，观察车辆运动变化。
+10. 观察参数面板中的速度、前向速度、估算加速度、估算纵向合力、质量、重力加速度和估算车长等读数。
+
+更详细的测试用例见：
+
+```text
+docs/test_cases.md
+```
+
+## 9. 课程要求对应关系
+
+| 课程要求 | 当前实现状态 |
+| --- | --- |
+| 系统至少包含 3-5 辆汽车 | 当前场景已配置 4 辆车：`Car1`、`Car2`、`Car3`、`Car4` |
+| 车辆均可以实现驱动 | 已实现基础驱动，并支持当前车辆切换 |
+| 实现车辆与车辆的物理碰撞 | 已具备基础车车碰撞效果，可用于课程演示 |
+| 实现车辆与其它对象的物理碰撞 | 已实现车辆与墙体、建筑、桥墩、树木、动态箱子、路障、交通锥等对象碰撞 |
+| UI 界面包含运动驱动、力和常用物理参数设置及可视化 | 已实现运行时参数面板和基础物理量可视化 |
+
+当前车辆数量已满足“3-5 辆汽车”的课程要求。若后续继续增删车辆，需要同步更新场景和本 README。
+
+## 10. 项目结构
+
+```text
+VehicleCollisionSim/
+├─ Assets/
+│  ├─ Scenes/
+│  │  └─ CollisionTestScene.unity
+│  ├─ SimpleCarController.cs
+│  ├─ VehicleManager.cs
+│  ├─ CameraFollow.cs
+│  ├─ VehicleRuntimeUI.cs
+│  ├─ WheelVisualRotator.cs
+│  ├─ TestFieldGenerator.cs
+│  ├─ DestructibleObstacle.cs
+│  └─ CollisionObjectLabel.cs
+├─ Packages/
+│  └─ manifest.json
+├─ ProjectSettings/
+│  └─ ProjectVersion.txt
+├─ docs/
+│  ├─ ai_usage_log.md
+│  ├─ dev_timeline.md
+│  ├─ test_cases.md
+│  ├─ module_assignment.md
+│  └─ final_delivery_checklist.md
+└─ README.md
+```
+
+## 11. 关键脚本说明
+
+| 文件 | 作用 |
+| --- | --- |
+| `Assets/SimpleCarController.cs` | 单车控制、车辆驱动、刹车、物理参数处理 |
+| `Assets/VehicleManager.cs` | 多车切换、车辆复位、运行时参数同步 |
+| `Assets/CameraFollow.cs` | 第三人称跟车相机与鼠标视角控制 |
+| `Assets/VehicleRuntimeUI.cs` | 运行时参数面板和物理量显示 |
+| `Assets/WheelVisualRotator.cs` | 轮子视觉旋转 |
+| `Assets/TestFieldGenerator.cs` | 自动生成环境碰撞测试场 |
+| `Assets/DestructibleObstacle.cs` | 动态障碍轻量碰撞反馈 |
+| `Assets/CollisionObjectLabel.cs` | 环境对象命名与碰撞日志辅助 |
+
+## 12. 资源来源
 
 - 车辆资源：`ARCADE - FREE Racing Car`
-- 环境测试场：当前版本主要由 Unity Primitive 通过脚本自动生成
+- 环境测试场：主要由 Unity Primitive 通过脚本生成
 
-说明：
-- 当前环境测试场以功能验证为主，视觉上较简化。
-- 如后续时间允许，可替换为更完整的材质包或模型资源。
+当前环境场景以功能验证为主，视觉表现较简化。课程验收时建议重点展示车辆控制、碰撞效果和参数可视化。
 
-## 当前已实现功能
+## 13. 常见问题
 
-### 1. 车辆控制
+### 13.1 项目打不开或打开后报错
 
-- `W/S` 前进后退
-- `A/D` 转向
-- `Space` 刹车
-- 第三人称跟车视角
-- 鼠标绕车观察
+优先检查 Unity Editor 版本是否为 `6000.3.10f1`。如果使用其它 Unity 6 小版本，可能可以打开，但存在导入差异风险。
 
-### 2. 多车管理
+### 13.2 首次打开项目很慢
 
-- `1-5` 切换当前车辆
-- `R` 重置当前车辆
-- `Shift+R` 重置全部车辆
-- 多车辆运行时参数同步
+首次打开时 Unity 会导入资源、生成 `Library` 缓存并恢复依赖包，耗时较长是正常现象。等待导入完成后再运行场景。
 
-### 3. 车辆与车辆碰撞
+### 13.3 按键没有反应
 
-- 已具备基础车车碰撞效果
-- 可演示中低速与高速碰撞
-- 当前仍在继续收尾中低速正面碰撞表现
+先点击 `Game` 窗口，使游戏窗口获得输入焦点。然后再使用 `W/S/A/D`、`Space`、`1/2/3/4`、`R`、`F2` 等按键。
 
-### 4. 车辆与环境对象碰撞
+### 13.4 参数面板没有显示
 
-当前测试场已包含：
+运行场景后按 `F2` 显示或隐藏参数面板。也可以检查场景中是否存在挂载 `VehicleManager` 和 `VehicleRuntimeUI` 的对象。
 
-- 道路
-- 墙体
-- 建筑
-- 桥面与桥墩
-- 树木
-- 动态箱子
-- 路障
-- 交通锥
+### 13.5 依赖包缺失
 
-其中：
+确认以下文件存在：
 
-- 静态对象用于阻挡车辆
-- 动态对象用于演示被撞飞、被撞倒或翻滚
+```text
+Packages/manifest.json
+```
 
-### 5. 参数面板与可视化
+然后重新打开 Unity 项目，等待 Unity Package Manager 自动恢复依赖。
 
-运行时参数面板已支持：
+### 13.6 场景打开后没有测试环境
 
-- 驱动力
-- 起步辅助驱动力
-- 转向参数
-- 刹车参数
-- 线性阻尼与角阻尼
-- 质量、重心、摩擦等相关参数
-- 当前速度、前向速度、估算前向加速度、估算纵向合力、质量、重力、估算车长等读数
+确认打开的是：
 
-## 当前项目结构
+```text
+Assets/Scenes/CollisionTestScene.unity
+```
 
-### 关键场景
+并确认场景中存在：
 
-- `Assets/Scenes/CollisionTestScene.unity`
+```text
+TestFieldManager
+```
 
-### 关键脚本
+测试场由相关脚本在场景中管理和生成。
 
-- `Assets/SimpleCarController.cs`
-  - 单车控制主线
-- `Assets/VehicleManager.cs`
-  - 多车切换、复位、运行时参数同步
-- `Assets/CameraFollow.cs`
-  - 跟车相机
-- `Assets/VehicleRuntimeUI.cs`
-  - 运行时参数面板
-- `Assets/WheelVisualRotator.cs`
-  - 轮子视觉旋转
-- `Assets/TestFieldGenerator.cs`
-  - 环境碰撞测试场生成
-- `Assets/DestructibleObstacle.cs`
-  - 动态障碍轻量破坏反馈
-- `Assets/CollisionObjectLabel.cs`
-  - 环境对象命名与碰撞日志
+## 14. 已知限制
 
-### 文档目录
+- 当前版本以课程演示和功能闭环为目标，车辆动力学为简化实现。
+- 当前场景已配置 4 辆车，满足课程要求中的 3-5 辆汽车数量。
+- 碰撞表现以 Unity 物理系统和演示稳定性为主，不包含工业级真实车损形变。
+- 环境美术以功能验证为主，主要使用 Unity Primitive 和简单材质。
 
-- `docs/ai_usage_log.md`
-  - AI 辅助开发记录
-- `docs/dev_timeline.md`
-  - 开发时间线
-- `docs/test_cases.md`
-  - 测试用例
-- `docs/module_assignment.md`
-  - 当前分工与剩余任务
-- `docs/final_delivery_checklist.md`
-  - 最终交付清单
+## 15. AI / Code Agent 使用说明
 
-## 运行方法
+本项目允许并鼓励使用 AI / Code Agent 辅助开发。按照课程要求，AI 使用过程需要在 PPT 和结题报告中说明，避免被视为未说明的代写或作弊。
 
-1. 使用 Unity 打开项目根目录：
-   - `D:\BaiduSyncdisk\repo\VehicleCollisionSim`
-2. 打开场景：
-   - `Assets/Scenes/CollisionTestScene.unity`
-3. 确认场景中存在：
-   - `Main Camera`
-   - `bigyellowbee`
-   - `Car2`
-   - `TestFieldManager`
-4. 点击 `Play`
-5. 点击 `Game` 窗口获取输入焦点
-6. 使用键位进行测试：
-   - `W/S` 前进后退
-   - `A/D` 转向
-   - `Space` 刹车
-   - `1-5` 切换车辆
-   - `R` 重置当前车辆
-   - `Shift+R` 重置全部车辆
-   - `F2` 显示/隐藏参数面板
+当前 AI / Code Agent 主要用于：
 
-## 课程要求对应关系
-
-### （1）系统至少包含 3-5 辆汽车
-
-当前状态：
-- 已接入 `bigyellowbee`
-- 已接入 `Car2`
-
-待完成：
-- 后续继续补齐到 `3-5` 辆
-
-### （2）这些车辆均可以实现驱动
-
-当前状态：
-- 已实现基础驱动
-- 已支持多车切换与统一参数
-
-### （3）实现车辆与车辆的物理碰撞
-
-当前状态：
-- 已具备基础车车碰撞效果
-- 中高速碰撞可展示
-- 中低速正面碰撞仍在继续收尾
-
-### （4）实现车辆与其它对象的物理碰撞
-
-当前状态：
-- 已实现车辆与墙体、建筑、桥墩、树木、动态箱子、路障、交通锥等对象的物理碰撞
-
-### （5）UI 界面交互性友好，包含运动驱动、力和常用物理参数设置及可视化
-
-当前状态：
-- 已有运行时参数面板
-- 已支持驱动力、阻尼、摩擦等参数调节
-- 已显示速度、加速度、质量、重力、车长估算等基础物理量
-
-## 测试说明
-
-建议优先测试：
-
-- 车辆移动与切换
-- 车车碰撞
-- 车辆与墙体碰撞
-- 车辆与建筑碰撞
-- 车辆与桥墩碰撞
-- 车辆与树木碰撞
-- 车辆与动态箱子、路障、交通锥碰撞
-- 参数面板调参前后效果
-
-详细测试清单见：
-
-- `docs/test_cases.md`
-
-## 当前仍待完善的内容
-
-以下内容建议后续由组员继续补完：
-
-### 必做
-
-- 补齐 `3-5` 辆车
-- 收尾车车碰撞展示效果
-- 完成正式 README、PPT、结题报告
-- 整理测试截图、运行截图和演示过程
-
-### 建议做
-
-- 替换 primitive 环境材质或场景资源
-- 增加碰撞强度或碰撞对象展示
-- 统一答辩演示路线
-
-### 可量力而行
-
-- 进一步增强环境美术表现
-- 增加碰撞等级反馈
-- 增加更多动态障碍
-
-## AI / Code Agent 使用说明
-
-本项目允许并鼓励使用 AI / Code Agent 辅助开发，但最终路线选择、资源取舍、代码集成、参数调试、场景搭建、测试验证和交付定稿均由人工主导完成。
-
-当前 AI 主要用于：
-
-- 辅助排查问题
-- 生成脚本初稿
-- 辅助整理测试清单
-- 辅助整理 README、PPT、报告底稿
+- 辅助排查 Unity 脚本和物理参数问题。
+- 生成和整理脚本初稿。
+- 辅助整理测试清单。
+- 辅助整理 README、PPT 和报告底稿。
 
 详细记录见：
 
-- `docs/ai_usage_log.md`
+```text
+docs/ai_usage_log.md
+```
 
-## 后续建议
+## 16. 最终提交前检查清单
 
-如果时间有限，建议优先保证：
+提交前建议至少检查以下内容：
 
-1. 车能开
-2. 车能撞车
-3. 车能撞环境
-4. UI 能调参数并显示基础物理量
-5. README / PPT / 报告完整
-
-不建议继续把大量时间投入到：
-
-- 极端真实的轮胎动力学
-- 真实车损形变
-- 工业级车辆仿真细节
-
-课程项目更重要的是：
-
-- 功能完整
-- 展示清楚
-- 过程可追溯
-- AI 使用说明真实可信
+- `README.md` 中的 Unity 版本、场景路径、按键说明与当前项目一致。
+- `Assets/Scenes/CollisionTestScene.unity` 可以正常打开并运行。
+- `Console` 中没有红色编译错误。
+- 车辆可以驱动、切换、重置。
+- 车车碰撞和车辆与环境碰撞可以演示。
+- `F2` 参数面板可以打开，参数调节和物理量显示可用。
+- 如果后续继续增删车辆，需要更新本 README 的车辆数量和切换按键说明。
+- PPT 和结题报告中写清楚 AI / Code Agent 的具体使用过程。

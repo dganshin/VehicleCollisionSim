@@ -5,11 +5,18 @@ public class TestFieldGenerator : MonoBehaviour
 {
     private const string RootName = "TestFieldRoot";
     private const string ManagerName = "TestFieldManager";
+    private const string AllowedSceneName = "CollisionTestScene";
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void AutoBootstrap()
     {
         if (!Application.isPlaying)
+        {
+            return;
+        }
+
+        Scene activeScene = SceneManager.GetActiveScene();
+        if (activeScene.name != AllowedSceneName)
         {
             return;
         }

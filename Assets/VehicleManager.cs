@@ -287,7 +287,15 @@ public class VehicleManager : MonoBehaviour
         }
 
         Array.Resize(ref mergedVehicles, count);
+        Array.Sort(mergedVehicles, CompareVehiclesByName);
         vehicles = mergedVehicles;
+    }
+
+    private static int CompareVehiclesByName(SimpleCarController left, SimpleCarController right)
+    {
+        string leftName = left != null ? left.name : string.Empty;
+        string rightName = right != null ? right.name : string.Empty;
+        return string.Compare(leftName, rightName, StringComparison.OrdinalIgnoreCase);
     }
 
     private SimpleCarController[] FindVehicleControllers()
@@ -423,7 +431,7 @@ public class VehicleManager : MonoBehaviour
                 continue;
             }
 
-            // 运行时统一把其他车辆的动力和刚体基线对齐到主车，避免 Car2 每次进 Play 手感都飘。
+            // 运行时统一把其他车辆的动力和刚体基线对齐到主车，避免不同车辆手感明显不一致。
             vehicles[i].CopyTuningFrom(template);
         }
     }

@@ -263,13 +263,9 @@ public class SimpleCarController : MonoBehaviour
                 applyInactiveTuning = true;
             }
 
-            CurrentThrottleInput = 0f;
-            CurrentSteerInput = 0f;
-            SetLinearDamping(applyInactiveTuning ? inactiveLinearDamping : normalDamping);
-            ApplyWheelRollingResistance(applyInactiveTuning, false);
-            ApplyWheelSurfaceGrip(applyInactiveTuning);
-            ResetWheelDrive();
+            ApplyNeutralCoastState(applyInactiveTuning);
             ApplyInactivePushAssist();
+            ApplyCoastingBodyDeceleration(false);
             return;
         }
 
@@ -380,23 +376,49 @@ public class SimpleCarController : MonoBehaviour
             return;
         }
 
+        if (isControlled == controlled)
+        {
+            return;
+        }
+
         isControlled = controlled;
 
         if (!controlled)
         {
-            CurrentThrottleInput = 0f;
-            CurrentSteerInput = 0f;
-            bool applyInactiveTuning = useInactiveCollisionTuning;
-            SetLinearDamping(applyInactiveTuning ? inactiveLinearDamping : normalDamping);
-            ApplyWheelRollingResistance(applyInactiveTuning, false);
-            ApplyWheelSurfaceGrip(applyInactiveTuning);
-            ResetWheelDrive();
+            ClearControlState();
             return;
         }
 
         SetLinearDamping(normalDamping);
         ApplyWheelRollingResistance(false, false);
         ApplyWheelSurfaceGrip(false);
+    }
+
+    private void ClearControlState()
+    {
+        CurrentThrottleInput = 0f;
+        CurrentSteerInput = 0f;
+        reverseLockTimer = 0f;
+        lastThrottleDirection = 0;
+        pendingInactiveVelocityChange = Vector3.zero;
+        inactivePushAssistTimer = 0f;
+        lastCoastingPlanarSpeed = -1f;
+
+        ApplyNeutralCoastState(useInactiveCollisionTuning);
+        ResetCoastingAuditFrame();
+    }
+
+    private void ApplyNeutralCoastState(bool applyInactiveTuning)
+    {
+        CurrentThrottleInput = 0f;
+        CurrentSteerInput = 0f;
+        reverseLockTimer = 0f;
+        lastThrottleDirection = 0;
+
+        SetLinearDamping(applyInactiveTuning ? inactiveLinearDamping : GetCoastingLinearDamping());
+        ApplyWheelRollingResistance(applyInactiveTuning, true);
+        ApplyWheelSurfaceGrip(applyInactiveTuning);
+        ResetWheelDrive();
     }
 
     public void RefreshCenterOfMass()
