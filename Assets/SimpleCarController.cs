@@ -37,6 +37,7 @@ public class SimpleCarController : MonoBehaviour
     private const float CurrentCollisionReverseBodyAssistAccelerationValue = 16f;
     private const float CurrentCollisionReverseBodyAssistSpeedThresholdValue = 3f;
     private const float CurrentCollisionReverseBodyVelocitySeedValue = 1.2f;
+    private const float CurrentBlockedReverseWheelRpmCancelThresholdValue = 80f;
 
     public bool isControlled = false; // 当前这辆车是否接收玩家输入。
     public string debugBuildTag = CurrentBuildTagValue; // 仅用于在 Inspector 中确认当前场景实例是否真的吃到了这轮修改。
@@ -116,6 +117,7 @@ public class SimpleCarController : MonoBehaviour
     public float collisionReverseBodyAssistAcceleration = 16f; // 碰撞态反向时，直接给车身一个小的反向加速度，避免必须等轮子先完全消掉旧扭矩才开始后退。
     public float collisionReverseBodyAssistSpeedThreshold = 3f; // 只有在较低前后速度下才启用碰撞态反向车身辅助，避免正常高速驾驶时被误触发。
     public float collisionReverseBodyVelocitySeed = 1.2f; // 碰撞态反向时，车身沿新方向至少建立起的最低速度种子，避免要等几秒才终于开始后退。
+    public float blockedReverseWheelRpmCancelThreshold = 80f; // 撞住静态/动态障碍后换向时，驱动轮残余转速超过该值就直接进入碰撞态反向辅助。
 
     private Rigidbody rb;
     private WheelCollider[] cachedWheelColliders;
@@ -275,6 +277,7 @@ public class SimpleCarController : MonoBehaviour
         collisionReverseBodyAssistAcceleration = CurrentCollisionReverseBodyAssistAccelerationValue;
         collisionReverseBodyAssistSpeedThreshold = CurrentCollisionReverseBodyAssistSpeedThresholdValue;
         collisionReverseBodyVelocitySeed = CurrentCollisionReverseBodyVelocitySeedValue;
+        blockedReverseWheelRpmCancelThreshold = CurrentBlockedReverseWheelRpmCancelThresholdValue;
     }
 
     private void FixedUpdate()
@@ -593,6 +596,7 @@ public class SimpleCarController : MonoBehaviour
         collisionReverseBodyAssistAcceleration = source.collisionReverseBodyAssistAcceleration;
         collisionReverseBodyAssistSpeedThreshold = source.collisionReverseBodyAssistSpeedThreshold;
         collisionReverseBodyVelocitySeed = source.collisionReverseBodyVelocitySeed;
+        blockedReverseWheelRpmCancelThreshold = source.blockedReverseWheelRpmCancelThreshold;
 
         Rigidbody sourceRb = source.CachedRigidbody != null ? source.CachedRigidbody : source.GetComponent<Rigidbody>();
         Rigidbody targetRb = CachedRigidbody != null ? CachedRigidbody : GetComponent<Rigidbody>();
@@ -1133,7 +1137,7 @@ public class SimpleCarController : MonoBehaviour
 
     private void ApplyCollisionReverseAssist(Collision collision)
     {
-        if (collision == null || collision.rigidbody == null || collision.rigidbody.isKinematic)
+        if (collision == null)
         {
             return;
         }
@@ -1149,7 +1153,7 @@ public class SimpleCarController : MonoBehaviour
             absForwardSpeed > 0.05f &&
             Mathf.Sign(CurrentThrottleInput) != Mathf.Sign(CurrentForwardSpeed);
         bool wantsOppositeOfWheelSpin =
-            Mathf.Abs(averageDriveWheelRpm) > 40f &&
+            Mathf.Abs(averageDriveWheelRpm) > blockedReverseWheelRpmCancelThreshold &&
             Mathf.Sign(CurrentThrottleInput) != Mathf.Sign(averageDriveWheelRpm);
 
         if (!wantsOppositeOfVelocity && !wantsOppositeOfWheelSpin)
@@ -1157,10 +1161,13 @@ public class SimpleCarController : MonoBehaviour
             return;
         }
 
-        reverseLockTimer = Mathf.Max(reverseLockTimer, collisionReverseAssistLockTime);
+        // 这里必须覆盖静态墙体/柱子等 collision.rigidbody == null 的情况。
+        // 车辆撞墙后车身速度被约束到接近 0，但 WheelCollider.rpm 仍可能保存旧方向趋势；
+        // 如果只等轮速自然衰减，玩家按反方向会感觉几秒钟都没有响应。
+        reverseLockTimer = 0f;
         lastThrottleDirection = CurrentThrottleInput > 0f ? 1 : -1;
 
-        for (int i = 0; i < driveWheels.Length; i++)
+        for (int i = 0; driveWheels != null && i < driveWheels.Length; i++)
         {
             if (driveWheels[i] == null)
             {
