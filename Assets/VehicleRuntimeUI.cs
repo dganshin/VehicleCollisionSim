@@ -25,6 +25,7 @@ public class VehicleRuntimeUI : MonoBehaviour
 
     private void Awake()
     {
+        CleanupLegacyTestFieldObjects();
         ApplyCrashTestTreePlacement();
 
         if (vehicleManager == null)
@@ -44,6 +45,24 @@ public class VehicleRuntimeUI : MonoBehaviour
                 lightingController = gameObject.AddComponent<SceneLightingController>();
             }
         }
+    }
+
+    private static void CleanupLegacyTestFieldObjects()
+    {
+        DestroyIfExists("TestFieldRoot");
+        DestroyIfExists("TestFieldManager");
+        DestroyIfExists("GeneratedSceneRoot");
+    }
+
+    private static void DestroyIfExists(string objectName)
+    {
+        GameObject obj = GameObject.Find(objectName);
+        if (obj == null)
+        {
+            return;
+        }
+
+        Destroy(obj);
     }
 
     private static void ApplyCrashTestTreePlacement()

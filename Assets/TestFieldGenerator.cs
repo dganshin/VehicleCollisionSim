@@ -1,36 +1,10 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 public class TestFieldGenerator : MonoBehaviour
 {
     private const string RootName = "TestFieldRoot";
-    private const string ManagerName = "TestFieldManager";
-    private const string AllowedSceneName = "CollisionTestScene";
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void AutoBootstrap()
-    {
-        if (!Application.isPlaying)
-        {
-            return;
-        }
-
-        Scene activeScene = SceneManager.GetActiveScene();
-        if (activeScene.name != AllowedSceneName)
-        {
-            return;
-        }
-
-        if (FindFirstObjectByType<TestFieldGenerator>() != null)
-        {
-            return;
-        }
-
-        GameObject manager = new GameObject(ManagerName);
-        manager.AddComponent<TestFieldGenerator>();
-    }
-
-    public bool generateOnStart = true; // 进入 Play 后是否自动生成测试场。
+    public bool generateOnStart = false; // 旧手搭测试场默认禁止自动生成，避免覆盖最终城市场景。
     public float fieldLength = 220f; // 测试场纵向长度，确保桥梁和后段障碍仍在边界墙内。
     public float fieldWidth = 26f; // 测试场横向宽度。
     public float roadWidth = 14f; // 道路宽度。
