@@ -228,7 +228,7 @@ public static class InstallCrashTestTree
 
     private static float GetTreeLift(int treeIndex)
     {
-        return TreeGroundLift + treeIndex * 1.2f;
+        return TreeGroundLift + treeIndex * 1.0f;
     }
 
     private static bool TryProjectToGround(Vector3 candidate, Transform vehicle, Transform generatedParent, out Vector3 groundedPosition)
