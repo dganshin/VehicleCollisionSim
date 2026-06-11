@@ -11,7 +11,8 @@
 - 车辆基础驱动：前进、后退、转向、刹车。
 - 多车辆管理：支持运行时切换当前控制车辆。
 - 车辆与车辆碰撞：可演示车辆之间的基础物理碰撞。
-- 车辆与环境对象碰撞：可与墙体、建筑、桥墩、树木、动态箱子、路障、交通锥等对象发生碰撞。
+- 车辆与环境对象碰撞：可与城市道路、马路牙子、人行道柱、桥梁、建筑、树木等对象发生物理碰撞。
+- 植物碰撞演示：场景中额外放置 3 棵 `CrashTestTree` 测试树，车辆撞击后可触发倒伏或位移效果。
 - 运行时参数面板：可查看并调节驱动力、刹车、阻尼、摩擦、质量、重心等常用物理参数。
 - 物理量可视化：显示速度、前向速度、估算加速度、估算纵向合力、质量、重力加速度、估算车长等读数。
 
@@ -105,7 +106,7 @@ Packages/manifest.json
 1. 在 Unity Project 面板中打开场景：
 
 ```text
-Assets/Scenes/CollisionTestScene.unity
+Assets/Versatile Studio Assets/Demo City By Versatile Studio/Scenes/demo_city_night.unity
 ```
 
 2. 确认场景层级中存在以下关键对象：
@@ -116,7 +117,8 @@ Car1
 Car2
 Car3
 Car4
-TestFieldManager
+VehicleRuntimeCameraAndManager
+CollisionTestObjects
 ```
 
 3. 点击 Unity 顶部的 `Play` 按钮进入运行模式。
@@ -146,16 +148,17 @@ TestFieldManager
 
 建议按以下顺序验证项目功能：
 
-1. 启动 `Assets/Scenes/CollisionTestScene.unity`。
+1. 启动 `Assets/Versatile Studio Assets/Demo City By Versatile Studio/Scenes/demo_city_night.unity`。
 2. 点击 `Play`，进入运行模式。
 3. 点击 `Game` 窗口获取输入焦点。
 4. 使用 `W/S/A/D` 驾驶当前车辆，确认车辆可以前进、后退和转向。
 5. 使用 `Space` 刹车，确认车辆可减速或停止。
 6. 使用 `1`、`2`、`3`、`4` 切换车辆，确认多车管理功能可用。
 7. 驾驶车辆撞向另一辆车，验证车车物理碰撞。
-8. 驾驶车辆撞向墙体、建筑、桥墩、树木、箱子、路障或交通锥，验证车辆与环境对象碰撞。
-9. 按 `F2` 打开参数面板，调整驱动力、刹车、阻尼、摩擦、质量等参数，观察车辆运动变化。
-10. 观察参数面板中的速度、前向速度、估算加速度、估算纵向合力、质量、重力加速度和估算车长等读数。
+8. 驾驶车辆撞向马路牙子、人行道柱、桥梁、建筑等静态环境对象，验证车辆与环境的物理碰撞。
+9. 驾驶车辆撞向 `CollisionTestObjects` 下的 `CrashTestTree_01`、`CrashTestTree_02`、`CrashTestTree_03`，验证车辆与植物对象的碰撞和倒伏效果。
+10. 按 `F2` 打开参数面板，调整驱动力、刹车、阻尼、摩擦、质量等参数，观察车辆运动变化。
+11. 观察参数面板中的速度、前向速度、估算加速度、估算纵向合力、质量、重力加速度和估算车长等读数。
 
 更详细的测试用例见：
 
@@ -170,7 +173,7 @@ docs/test_cases.md
 | 系统至少包含 3-5 辆汽车 | 当前场景已配置 4 辆车：`Car1`、`Car2`、`Car3`、`Car4` |
 | 车辆均可以实现驱动 | 已实现基础驱动，并支持当前车辆切换 |
 | 实现车辆与车辆的物理碰撞 | 已具备基础车车碰撞效果，可用于课程演示 |
-| 实现车辆与其它对象的物理碰撞 | 已实现车辆与墙体、建筑、桥墩、树木、动态箱子、路障、交通锥等对象碰撞 |
+| 实现车辆与其它对象的物理碰撞 | 已实现车辆与城市道路、马路牙子、人行道柱、桥梁、建筑和 3 棵可撞倒测试树的物理碰撞 |
 | UI 界面包含运动驱动、力和常用物理参数设置及可视化 | 已实现运行时参数面板和基础物理量可视化 |
 
 当前车辆数量已满足“3-5 辆汽车”的课程要求。若后续继续增删车辆，需要同步更新场景和本 README。
@@ -182,6 +185,10 @@ VehicleCollisionSim/
 ├─ Assets/
 │  ├─ Scenes/
 │  │  └─ CollisionTestScene.unity
+│  ├─ Versatile Studio Assets/
+│  │  └─ Demo City By Versatile Studio/
+│  │     └─ Scenes/
+│  │        └─ demo_city_night.unity
 │  ├─ SimpleCarController.cs
 │  ├─ VehicleManager.cs
 │  ├─ CameraFollow.cs
@@ -189,7 +196,13 @@ VehicleCollisionSim/
 │  ├─ WheelVisualRotator.cs
 │  ├─ TestFieldGenerator.cs
 │  ├─ DestructibleObstacle.cs
-│  └─ CollisionObjectLabel.cs
+│  ├─ CollisionObjectLabel.cs
+│  ├─ Editor/
+│  │  ├─ InstallTunedVehiclesIntoDemoCity.cs
+│  │  └─ InstallCrashTestTree.cs
+│  └─ Scripts/
+│     └─ Physics/
+│        └─ CrashableTree.cs
 ├─ Packages/
 │  └─ manifest.json
 ├─ ProjectSettings/
@@ -215,13 +228,17 @@ VehicleCollisionSim/
 | `Assets/TestFieldGenerator.cs` | 自动生成环境碰撞测试场 |
 | `Assets/DestructibleObstacle.cs` | 动态障碍轻量碰撞反馈 |
 | `Assets/CollisionObjectLabel.cs` | 环境对象命名与碰撞日志辅助 |
+| `Assets/Scripts/Physics/CrashableTree.cs` | 可撞倒测试树逻辑，用于演示车辆与植物碰撞 |
+| `Assets/Editor/InstallTunedVehiclesIntoDemoCity.cs` | 将调好参数的车辆安装到城市场景的辅助 Editor 脚本 |
+| `Assets/Editor/InstallCrashTestTree.cs` | 在城市场景中放置可碰撞测试树的辅助 Editor 脚本 |
 
 ## 12. 资源来源
 
 - 车辆资源：`ARCADE - FREE Racing Car`
-- 环境测试场：主要由 Unity Primitive 通过脚本生成
+- 城市与高速环境：`Demo City By Versatile Studio`
+- 备用基础测试场：`Assets/Scenes/CollisionTestScene.unity`
 
-当前环境场景以功能验证为主，视觉表现较简化。课程验收时建议重点展示车辆控制、碰撞效果和参数可视化。
+当前推荐验收场景是完整城市/高速道路场景，课程验收时建议重点展示车辆控制、车车碰撞、车辆与树木/桥梁/路沿等环境对象碰撞，以及运行时物理参数可视化。
 
 ## 13. 常见问题
 
@@ -256,23 +273,30 @@ Packages/manifest.json
 确认打开的是：
 
 ```text
-Assets/Scenes/CollisionTestScene.unity
+Assets/Versatile Studio Assets/Demo City By Versatile Studio/Scenes/demo_city_night.unity
 ```
 
 并确认场景中存在：
 
 ```text
-TestFieldManager
+Car1
+Car2
+Car3
+Car4
+VehicleRuntimeCameraAndManager
+CollisionTestObjects
 ```
 
-测试场由相关脚本在场景中管理和生成。
+如果只想运行备用基础测试场，也可以打开 `Assets/Scenes/CollisionTestScene.unity`。
 
 ## 14. 已知限制
 
 - 当前版本以课程演示和功能闭环为目标，车辆动力学为简化实现。
 - 当前场景已配置 4 辆车，满足课程要求中的 3-5 辆汽车数量。
 - 碰撞表现以 Unity 物理系统和演示稳定性为主，不包含工业级真实车损形变。
-- 环境美术以功能验证为主，主要使用 Unity Primitive 和简单材质。
+- 下载的城市环境中，马路牙子、人行道柱、路灯、建筑、桥梁等主要作为静态碰撞体使用，不做整体可破坏或可撞飞效果。
+- 当前仅额外配置 3 棵可撞倒测试树用于“车辆与植物对象碰撞”演示。
+- 项目没有专门制作复杂材质、光线追踪或真实车损形变，展示重点是车辆动力学、碰撞和物理参数可视化。
 
 ## 15. AI / Code Agent 使用说明
 
@@ -296,10 +320,11 @@ docs/ai_usage_log.md
 提交前建议至少检查以下内容：
 
 - `README.md` 中的 Unity 版本、场景路径、按键说明与当前项目一致。
-- `Assets/Scenes/CollisionTestScene.unity` 可以正常打开并运行。
+- `Assets/Versatile Studio Assets/Demo City By Versatile Studio/Scenes/demo_city_night.unity` 可以正常打开并运行。
 - `Console` 中没有红色编译错误。
 - 车辆可以驱动、切换、重置。
 - 车车碰撞和车辆与环境碰撞可以演示。
+- 3 棵 `CrashTestTree` 可以被车辆撞动或撞倒，且不会穿模或飞出地图。
 - `F2` 参数面板可以打开，参数调节和物理量显示可用。
 - 如果后续继续增删车辆，需要更新本 README 的车辆数量和切换按键说明。
 - PPT 和结题报告中写清楚 AI / Code Agent 的具体使用过程。
