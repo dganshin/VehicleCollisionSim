@@ -280,10 +280,10 @@ public static class InstallCrashTestTree
         }
 
         rb.mass = 120f;
-        rb.useGravity = true;
+        rb.useGravity = false;
         rb.isKinematic = true;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
-        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
         rb.constraints = RigidbodyConstraints.None;
 #if UNITY_6000_0_OR_NEWER
         rb.linearDamping = 1.5f;
@@ -304,31 +304,18 @@ public static class InstallCrashTestTree
 
         crashableTree.triggerSpeed = 5f;
         crashableTree.mass = 120f;
-        crashableTree.linearDamping = 1.5f;
-        crashableTree.angularDamping = 6f;
-        crashableTree.impulseScale = 22f;
-        crashableTree.torqueScale = 14f;
-        crashableTree.settleDelay = 1.1f;
-        crashableTree.maxLinearSpeed = 8f;
-        crashableTree.maxAngularSpeed = 3f;
-        crashableTree.freezeYAfterImpact = true;
-        crashableTree.freezeAfterSettle = true;
+        crashableTree.fallAngle = 78f;
+        crashableTree.fallDuration = 0.8f;
+        crashableTree.impactNudgeDistance = 0.35f;
     }
 
     private static void ConfigureTrunkCollider(GameObject tree, CapsuleCollider trunkCollider)
     {
-        Bounds bounds = CalculateRendererBounds(tree);
-        float inverseYScale = Mathf.Approximately(tree.transform.lossyScale.y, 0f) ? 1f : 1f / tree.transform.lossyScale.y;
-        float inverseXZScale = Mathf.Approximately(tree.transform.lossyScale.x, 0f) ? 1f : 1f / tree.transform.lossyScale.x;
-
-        float localHeight = Mathf.Clamp(bounds.size.y * 0.78f * inverseYScale, 3.8f, 6.5f);
-        float localRadius = Mathf.Clamp(Mathf.Min(bounds.size.x, bounds.size.z) * 0.13f * inverseXZScale, 0.3f, 0.55f);
-
         trunkCollider.direction = 1;
         trunkCollider.isTrigger = false;
-        trunkCollider.height = localHeight;
-        trunkCollider.radius = localRadius;
-        trunkCollider.center = new Vector3(0f, localHeight * 0.5f, 0f);
+        trunkCollider.height = 3.2f;
+        trunkCollider.radius = 0.65f;
+        trunkCollider.center = new Vector3(0f, -2.4f, 0f);
     }
 
     private static Bounds CalculateRendererBounds(GameObject tree)
