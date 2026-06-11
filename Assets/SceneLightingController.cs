@@ -13,6 +13,8 @@ public class SceneLightingController : MonoBehaviour
     public float daySunIntensity = 3.2f;
     public float dayShadowStrength = 0.65f;
     public float dayReflectionIntensity = 1.35f;
+    public Vector3 daySunEulerAngles = new Vector3(62f, -35f, 0f);
+    public float daySceneLightMultiplier = 0.25f;
 
     [Header("Night")]
     public Color nightSkyColor = new Color(0.13f, 0.16f, 0.22f, 1f);
@@ -22,9 +24,13 @@ public class SceneLightingController : MonoBehaviour
     public float nightSunIntensity = 0.35f;
     public float nightShadowStrength = 0.9f;
     public float nightReflectionIntensity = 0.75f;
+    public Vector3 nightSunEulerAngles = new Vector3(18f, -120f, 0f);
+    public float nightSceneLightMultiplier = 1.8f;
 
     private Material daySkybox;
     private Material nightSkybox;
+    private Light[] sceneLights;
+    private float[] sceneLightBaseIntensities;
 
     public bool IsDay { get; private set; }
     public string CurrentLabel => IsDay ? "白天" : "黑夜";
@@ -36,6 +42,7 @@ public class SceneLightingController : MonoBehaviour
             sunLight = RenderSettings.sun != null ? RenderSettings.sun : FindDirectionalLight();
         }
 
+        CacheSceneLights();
         daySkybox = RenderSettings.skybox;
         nightSkybox = CreateNightSkybox();
         ApplyLighting(startAsDay);
@@ -65,10 +72,42 @@ public class SceneLightingController : MonoBehaviour
             sunLight.intensity = day ? daySunIntensity : nightSunIntensity;
             sunLight.shadows = LightShadows.Soft;
             sunLight.shadowStrength = day ? dayShadowStrength : nightShadowStrength;
+            sunLight.transform.rotation = Quaternion.Euler(day ? daySunEulerAngles : nightSunEulerAngles);
             RenderSettings.sun = sunLight;
         }
 
+        ApplySceneLightMultiplier(day ? daySceneLightMultiplier : nightSceneLightMultiplier);
         DynamicGI.UpdateEnvironment();
+    }
+
+    private void CacheSceneLights()
+    {
+        sceneLights = FindObjectsByType<Light>(FindObjectsSortMode.None);
+        sceneLightBaseIntensities = new float[sceneLights.Length];
+
+        for (int i = 0; i < sceneLights.Length; i++)
+        {
+            sceneLightBaseIntensities[i] = sceneLights[i] != null ? sceneLights[i].intensity : 0f;
+        }
+    }
+
+    private void ApplySceneLightMultiplier(float multiplier)
+    {
+        if (sceneLights == null || sceneLightBaseIntensities == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < sceneLights.Length; i++)
+        {
+            Light sceneLight = sceneLights[i];
+            if (sceneLight == null || sceneLight == sunLight)
+            {
+                continue;
+            }
+
+            sceneLight.intensity = sceneLightBaseIntensities[i] * multiplier;
+        }
     }
 
     private static Light FindDirectionalLight()

@@ -10,9 +10,9 @@ public class CameraFollow : MonoBehaviour
     public float lookHeight = 1.2f; // 相机注视点相对车辆根对象向上的偏移。
     public float followSmoothTime = 0.18f; // 位置平滑时间，越大越柔和，但响应会更慢。
     public float rotateSpeed = 8f; // 相机朝向目标时的旋转平滑速度。
-    public bool lockBehindTarget = true; // 是否始终把相机锁在车辆屁股后方。
+    public bool lockBehindTarget = false; // 是否始终把相机锁在车辆屁股后方。
     public float yawFollowSpeed = 12f; // 车辆转向时相机追随车辆水平朝向的速度。
-    public bool allowMouseOrbit = false; // 是否允许鼠标绕车旋转相机。
+    public bool allowMouseOrbit = true; // 是否允许鼠标绕车旋转相机。
     public bool requireLeftMouseHold = true; // 是否必须按住鼠标左键才允许旋转相机。
     public bool requireRightMouseHold = false; // 是否必须按住鼠标右键才允许旋转相机。
     public float mouseSensitivity = 0.15f; // 鼠标控制相机旋转的灵敏度。
