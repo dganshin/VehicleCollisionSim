@@ -25,6 +25,8 @@ public class VehicleRuntimeUI : MonoBehaviour
 
     private void Awake()
     {
+        ApplyCrashTestTreePlacement();
+
         if (vehicleManager == null)
         {
             vehicleManager = GetComponent<VehicleManager>();
@@ -41,6 +43,35 @@ public class VehicleRuntimeUI : MonoBehaviour
             {
                 lightingController = gameObject.AddComponent<SceneLightingController>();
             }
+        }
+    }
+
+    private static void ApplyCrashTestTreePlacement()
+    {
+        SetTreePosition("CrashTestTree_01", new Vector3(152f, 4.0f, 18f));
+        SetTreePosition("CrashTestTree_02", new Vector3(172f, 4.8f, 18f));
+        SetTreePosition("CrashTestTree_03", new Vector3(192f, 5.6f, 18f));
+    }
+
+    private static void SetTreePosition(string treeName, Vector3 position)
+    {
+        GameObject tree = GameObject.Find(treeName);
+        if (tree == null)
+        {
+            return;
+        }
+
+        tree.transform.position = position;
+        Rigidbody body = tree.GetComponent<Rigidbody>();
+        if (body != null)
+        {
+            body.position = position;
+#if UNITY_6000_0_OR_NEWER
+            body.linearVelocity = Vector3.zero;
+#else
+            body.velocity = Vector3.zero;
+#endif
+            body.angularVelocity = Vector3.zero;
         }
     }
 
