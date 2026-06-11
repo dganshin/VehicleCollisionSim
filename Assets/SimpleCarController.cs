@@ -6,7 +6,7 @@ using System.IO;
 
 public class SimpleCarController : MonoBehaviour
 {
-    private const string CurrentBuildTagValue = "coast_fix_scene_sync_2026_05_15_v12_push_softened";
+    private const string CurrentBuildTagValue = "coast_fix_scene_sync_2026_06_11_v13_collision_showcase";
     private const float CurrentMotorAccelerationValue = 6400f;
     private const float CurrentStartBoostAccelerationValue = 8400f;
     private const float CurrentWheelTorqueScaleValue = 1.4f;
@@ -15,15 +15,19 @@ public class SimpleCarController : MonoBehaviour
     private const float CurrentCoastingDecelerationBlendSpeedValue = 30f;
     private const float CurrentCenterOfMassYValue = -0.05f;
     private const float CurrentRuntimeAngularDampingValue = 1.6f;
-    private const float CurrentInactivePushAssistSpeedValue = 3.8f;
-    private const float CurrentInactivePushAssistMaxTargetSpeedValue = 8f;
-    private const float CurrentInactivePushAssistImpulseThresholdValue = 12f;
-    private const float CurrentInactivePushAssistTuningDurationValue = 0.8f;
-    private const float CurrentContactImpulseTransferScaleValue = 3.1f;
-    private const float CurrentContactPushVelocityStepValue = 0.65f;
-    private const float CurrentContactStaticPushSpeedThresholdValue = 2.6f;
-    private const float CurrentContactMinimumPushSpeedValue = 1.15f;
-    private const float CurrentContactImmediateVelocitySeedValue = 1.45f;
+    private const bool CurrentUseInactiveCollisionTuningValue = true;
+    private const float CurrentInactivePushAssistSpeedValue = 5f;
+    private const float CurrentInactivePushAssistMaxTargetSpeedValue = 12f;
+    private const float CurrentInactivePushAssistImpulseThresholdValue = 8f;
+    private const float CurrentInactivePushAssistTuningDurationValue = 1f;
+    private const float CurrentContactImpulseTransferScaleValue = 4.5f;
+    private const float CurrentContactPushVelocityStepValue = 1.1f;
+    private const float CurrentContactStaticPushSpeedThresholdValue = 3.5f;
+    private const float CurrentContactMinimumPushSpeedValue = 1.8f;
+    private const float CurrentContactImmediateVelocitySeedValue = 2.4f;
+    private const float CurrentContactPushSpeedThresholdValue = 18f;
+    private const float CurrentContactPushAlignmentThresholdValue = 0.2f;
+    private const float CurrentBumperZoneThresholdValue = 0.8f;
     private const float CurrentDirectionChangeSpeedThresholdValue = 0.25f;
     private const float CurrentStationaryReverseRpmThresholdValue = 260f;
     private const float CurrentStationaryReverseBrakeTorqueValue = 1800f;
@@ -61,7 +65,7 @@ public class SimpleCarController : MonoBehaviour
     public float debugCoastingAuditInterval = 0.2f; // 空挡滑行审计日志的输出间隔，避免每帧刷屏。
     public bool debugCoastingAuditWriteToFile = true; // 是否把空挡滑行审计日志同步写入文本文件，方便完整保存。
     public float runtimeAngularDamping = 1.6f; // 车辆旋转时的基础角阻尼；继续降低，让侧撞后的翻滚趋势更容易保留下来。
-    public bool useInactiveCollisionTuning = false; // 是否对非当前控制车辆启用更低阻力碰撞展示参数；当前默认关闭，避免切车后手感不一致。
+    public bool useInactiveCollisionTuning = true; // 是否对非当前控制车辆启用更低阻力碰撞展示参数；演示档开启，避免目标车像焊死在地上。
     public float inactiveLinearDamping = 0.02f; // 非激活车辆使用的较低线性阻尼，兼顾被撞动和不过分打滑。
     public float wheelColliderMass = 8f; // 轮子等效质量；适度降低，减轻“轮子像巨大飞轮一样难起转、难反转、松油后还继续推车”的感觉。
     public float wheelDampingRateScale = 0.35f; // 当前主线车辆的轮子滚动阻力缩放，降低后可减少“松油马上被拖死”和碰撞后过快耗能。
@@ -95,18 +99,18 @@ public class SimpleCarController : MonoBehaviour
     public float bodyDynamicFriction = 0.06f; // 运行时车身碰撞体材质的动摩擦系数。
     public bool liftVehicleAboveGroundOnStart = true; // 是否在启动时把车辆轻微抬起，避免出生时和地面穿插。
     public float startGroundClearance = 0.03f; // 启动离地校正后，车辆最低点与地面保留的额外间隙。
-    public float inactivePushAssistSpeed = 3.8f; // 非激活静止车辆在被撞时附加的启动速度；回调一档，避免低速轻碰就像炸弹一样弹开。
-    public float inactivePushAssistMaxTargetSpeed = 8f; // 非激活车辆低于该速度时才使用启动辅助；仍然限制在演示用的中低速顶推阶段。
-    public float inactivePushAssistImpulseThreshold = 12f; // 继续降低纵向冲量触发门槛，让中低速正面碰撞更容易产生前后位移。
-    public float inactivePushAssistTuningDuration = 0.8f; // 被顶车辆在短时间内切到更易滚动的阻力配置，持续略长一点，优先解决“后轮抬起但车身不走”。
-    public float contactImpulseTransferScale = 3.1f; // 前后向碰撞时，将纵向碰撞冲量换算成目标车纵向速度变化的倍率；降低一档，保留低速碰撞位移但减弱“被炸开”的感觉。
-    public float contactPushVelocityStep = 0.65f; // 当前控制车贴住静止目标持续给油时，每个物理步补给目标车的纵向速度步进；回调到更像“缓慢顶走”。
-    public float contactStaticPushSpeedThreshold = 2.6f; // 两车都接近静止时，才启用贴住推车步进；进一步放宽，让低速起步贴车更容易生效。
-    public float contactMinimumPushSpeed = 1.15f; // 低速正面追尾时，目标车沿前后方向至少建立起的启动速度；保留可见位移，但避免过于突兀。
-    public float contactImmediateVelocitySeed = 1.45f; // 正面低速撞击当下给目标车建立的最低纵向速度种子；继续保留断点补偿，但强度显著减弱。
-    public float contactPushSpeedThreshold = 6f; // 只有在较低碰撞速度下才启用接触推车辅助。
-    public float contactPushAlignmentThreshold = 0.35f; // 接触点与车辆前后方向的对齐阈值，避免侧擦时误判为推车。
-    public float bumperZoneThreshold = 1.35f; // 接触点在车体前后向上的占比阈值，只有明显处于前后保险杠区域才触发推车辅助。
+    public float inactivePushAssistSpeed = 5f; // 非激活静止车辆在被撞时附加的启动速度；演示档优先保证车车碰撞有可见位移。
+    public float inactivePushAssistMaxTargetSpeed = 12f; // 非激活车辆低于该速度时使用启动辅助；放宽到中速碰撞，避免看起来像焊死。
+    public float inactivePushAssistImpulseThreshold = 8f; // 纵向冲量触发门槛；降低后中低速追尾更容易推动目标车。
+    public float inactivePushAssistTuningDuration = 1f; // 被顶车辆短时间切到更易滚动配置，避免后轮抬起但车身不走。
+    public float contactImpulseTransferScale = 4.5f; // 前后向碰撞冲量到目标车速度变化的转换倍率；演示档提高碰撞反馈。
+    public float contactPushVelocityStep = 1.1f; // 当前控制车贴住静止目标持续给油时，每个物理步补给目标车的纵向速度步进。
+    public float contactStaticPushSpeedThreshold = 3.5f; // 两车接近静止时启用贴住推车步进的速度阈值。
+    public float contactMinimumPushSpeed = 1.8f; // 低速正面追尾时目标车至少建立的前后向启动速度。
+    public float contactImmediateVelocitySeed = 2.4f; // 正面撞击当下给目标车建立的最低纵向速度种子，避免只抬轮不走。
+    public float contactPushSpeedThreshold = 18f; // 接触推车辅助允许的主车速度上限；覆盖中速碰撞展示。
+    public float contactPushAlignmentThreshold = 0.2f; // 接触方向与车辆前后方向的对齐阈值；降低后斜向追尾也能触发。
+    public float bumperZoneThreshold = 0.8f; // 接触点前后向占比阈值；降低后保险杠附近碰撞不易漏判。
     public float collisionReverseAssistBrakeTorque = 2800f; // 顶住另一辆车时，如果用户已经在反向给油，用这段刹车快速卸掉旧轮速，减少“巨大飞轮效应”。
     public float collisionReverseAssistLockTime = 0.03f; // 碰撞状态下的反向辅助刹轮时间，比普通换向更短，只用于尽快把控制权交给新方向。
     public float collisionReverseBodyAssistAcceleration = 16f; // 碰撞态反向时，直接给车身一个小的反向加速度，避免必须等轮子先完全消掉旧扭矩才开始后退。
@@ -249,6 +253,7 @@ public class SimpleCarController : MonoBehaviour
         coastingDecelerationBlendSpeed = CurrentCoastingDecelerationBlendSpeedValue;
         centerOfMassOffset.y = CurrentCenterOfMassYValue;
         runtimeAngularDamping = CurrentRuntimeAngularDampingValue;
+        useInactiveCollisionTuning = CurrentUseInactiveCollisionTuningValue;
         inactivePushAssistSpeed = CurrentInactivePushAssistSpeedValue;
         inactivePushAssistMaxTargetSpeed = CurrentInactivePushAssistMaxTargetSpeedValue;
         inactivePushAssistImpulseThreshold = CurrentInactivePushAssistImpulseThresholdValue;
@@ -258,6 +263,9 @@ public class SimpleCarController : MonoBehaviour
         contactStaticPushSpeedThreshold = CurrentContactStaticPushSpeedThresholdValue;
         contactMinimumPushSpeed = CurrentContactMinimumPushSpeedValue;
         contactImmediateVelocitySeed = CurrentContactImmediateVelocitySeedValue;
+        contactPushSpeedThreshold = CurrentContactPushSpeedThresholdValue;
+        contactPushAlignmentThreshold = CurrentContactPushAlignmentThresholdValue;
+        bumperZoneThreshold = CurrentBumperZoneThresholdValue;
         directionChangeSpeedThreshold = CurrentDirectionChangeSpeedThresholdValue;
         stationaryReverseRpmThreshold = CurrentStationaryReverseRpmThresholdValue;
         stationaryReverseBrakeTorque = CurrentStationaryReverseBrakeTorqueValue;

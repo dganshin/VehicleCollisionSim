@@ -313,6 +313,8 @@ public static class InstallCrashTestTree
         crashableTree.fallenLinearDamping = 1.2f;
         crashableTree.fallenAngularDamping = 4f;
         crashableTree.fallImpactImpulse = 4f;
+        crashableTree.fallenPushSpeedScale = 0.55f;
+        crashableTree.fallenMaxPushSpeed = 4f;
     }
 
     private static void ConfigureTrunkCollider(GameObject tree, CapsuleCollider trunkCollider)

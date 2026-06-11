@@ -16,10 +16,13 @@ public class CrashableTree : MonoBehaviour
     public float fallenLinearDamping = 1.2f;
     public float fallenAngularDamping = 4f;
     public float fallImpactImpulse = 4f;
+    public float fallenPushSpeedScale = 0.55f;
+    public float fallenMaxPushSpeed = 4f;
 
     private Rigidbody rb;
     private CapsuleCollider trunkCollider;
     private bool hasFallen;
+    private bool canBePushed;
     private Vector3 basePosition;
     private Quaternion uprightRotation;
 
@@ -45,6 +48,8 @@ public class CrashableTree : MonoBehaviour
         fallenLinearDamping = Mathf.Max(0f, fallenLinearDamping);
         fallenAngularDamping = Mathf.Max(0f, fallenAngularDamping);
         fallImpactImpulse = Mathf.Max(0f, fallImpactImpulse);
+        fallenPushSpeedScale = Mathf.Max(0f, fallenPushSpeedScale);
+        fallenMaxPushSpeed = Mathf.Max(0f, fallenMaxPushSpeed);
 
         if (trunkCollider == null)
         {
@@ -58,6 +63,7 @@ public class CrashableTree : MonoBehaviour
     {
         StopAllCoroutines();
         hasFallen = false;
+        canBePushed = false;
         basePosition = position;
         uprightRotation = Quaternion.identity;
         transform.SetPositionAndRotation(basePosition, uprightRotation);
@@ -83,6 +89,41 @@ public class CrashableTree : MonoBehaviour
         uprightRotation = transform.rotation;
         hasFallen = true;
         StartCoroutine(FallOver(collision));
+    }
+
+    private void OnCollisionStay(Collision collision)
+    {
+        if (!canBePushed || !IsVehicleCollision(collision.collider))
+        {
+            return;
+        }
+
+        Vector3 pushDirection = GetVehiclePushDirection(collision);
+        if (pushDirection.sqrMagnitude < 0.01f)
+        {
+            return;
+        }
+
+        float speed = Mathf.Min(fallenMaxPushSpeed, collision.relativeVelocity.magnitude * fallenPushSpeedScale);
+        if (speed <= 0.001f)
+        {
+            return;
+        }
+
+        Vector3 nextPosition = rb != null ? rb.position : transform.position;
+        nextPosition += pushDirection.normalized * speed * Time.fixedDeltaTime;
+        nextPosition.y = basePosition.y;
+
+        if (rb != null)
+        {
+            rb.MovePosition(nextPosition);
+        }
+        else
+        {
+            transform.position = nextPosition;
+        }
+
+        basePosition = nextPosition;
     }
 
     private IEnumerator FallOver(Collision collision)
@@ -122,8 +163,10 @@ public class CrashableTree : MonoBehaviour
         {
             rb.position = targetPosition;
             rb.rotation = targetRotation;
-            ConfigureFallenRigidbody(impactDirection);
+            ConfigureFallenRigidbody();
         }
+
+        canBePushed = true;
     }
 
     private void ConfigureCollider()
@@ -162,7 +205,7 @@ public class CrashableTree : MonoBehaviour
         rb.angularVelocity = Vector3.zero;
     }
 
-    private void ConfigureFallenRigidbody(Vector3 impactDirection)
+    private void ConfigureFallenRigidbody()
     {
         if (rb == null)
         {
@@ -170,10 +213,10 @@ public class CrashableTree : MonoBehaviour
         }
 
         rb.mass = mass;
-        rb.useGravity = true;
-        rb.isKinematic = false;
+        rb.useGravity = false;
+        rb.isKinematic = true;
         rb.interpolation = RigidbodyInterpolation.Interpolate;
-        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
         rb.constraints = RigidbodyConstraints.None;
 #if UNITY_6000_0_OR_NEWER
         rb.linearDamping = fallenLinearDamping;
@@ -186,12 +229,35 @@ public class CrashableTree : MonoBehaviour
 #endif
         rb.angularVelocity = Vector3.zero;
 
-        if (impactDirection.sqrMagnitude > 0.01f && fallImpactImpulse > 0f)
+        rb.WakeUp();
+    }
+
+    private Vector3 GetVehiclePushDirection(Collision collision)
+    {
+        Rigidbody vehicleBody = collision.rigidbody;
+        if (vehicleBody != null)
         {
-            rb.AddForce(impactDirection.normalized * fallImpactImpulse, ForceMode.Impulse);
+#if UNITY_6000_0_OR_NEWER
+            Vector3 velocity = vehicleBody.linearVelocity;
+#else
+            Vector3 velocity = vehicleBody.velocity;
+#endif
+            velocity.y = 0f;
+            if (velocity.sqrMagnitude > 0.01f)
+            {
+                return velocity.normalized;
+            }
         }
 
-        rb.WakeUp();
+        Vector3 fallback = collision.transform.position;
+        if (collision.contactCount > 0)
+        {
+            fallback = collision.GetContact(0).point;
+        }
+
+        Vector3 direction = transform.position - fallback;
+        direction.y = 0f;
+        return direction.sqrMagnitude > 0.01f ? direction.normalized : transform.forward;
     }
 
     private static bool IsVehicleCollision(Collider other)
