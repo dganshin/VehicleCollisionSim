@@ -10,7 +10,9 @@ public class CameraFollow : MonoBehaviour
     public float lookHeight = 1.2f; // 相机注视点相对车辆根对象向上的偏移。
     public float followSmoothTime = 0.18f; // 位置平滑时间，越大越柔和，但响应会更慢。
     public float rotateSpeed = 8f; // 相机朝向目标时的旋转平滑速度。
-    public bool allowMouseOrbit = true; // 是否允许鼠标绕车旋转相机。
+    public bool lockBehindTarget = true; // 是否始终把相机锁在车辆屁股后方。
+    public float yawFollowSpeed = 12f; // 车辆转向时相机追随车辆水平朝向的速度。
+    public bool allowMouseOrbit = false; // 是否允许鼠标绕车旋转相机。
     public bool requireLeftMouseHold = true; // 是否必须按住鼠标左键才允许旋转相机。
     public bool requireRightMouseHold = false; // 是否必须按住鼠标右键才允许旋转相机。
     public float mouseSensitivity = 0.15f; // 鼠标控制相机旋转的灵敏度。
@@ -46,20 +48,14 @@ public class CameraFollow : MonoBehaviour
 
     private void UpdateCamera(bool snapInstantly)
     {
-        UpdateOrbitAngles();
-
         if (!orbitInitialized)
         {
-            Vector3 planarForward = Vector3.ProjectOnPlane(target.forward, Vector3.up);
-            if (planarForward.sqrMagnitude < 0.001f)
-            {
-                planarForward = Vector3.forward;
-            }
-
-            orbitYaw = Quaternion.LookRotation(planarForward.normalized, Vector3.up).eulerAngles.y;
+            orbitYaw = GetTargetPlanarYaw();
             pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
             orbitInitialized = true;
         }
+
+        UpdateOrbitAngles(snapInstantly);
 
         Vector3 lookPoint = target.position + Vector3.up * lookHeight;
         Quaternion orbitRotation = Quaternion.Euler(pitch, orbitYaw, 0f);
@@ -76,7 +72,32 @@ public class CameraFollow : MonoBehaviour
             : Quaternion.Slerp(transform.rotation, desiredRotation, rotateSpeed * Time.deltaTime);
     }
 
-    private void UpdateOrbitAngles()
+    private void UpdateOrbitAngles(bool snapInstantly)
+    {
+        if (lockBehindTarget)
+        {
+            float targetYaw = GetTargetPlanarYaw();
+            orbitYaw = snapInstantly
+                ? targetYaw
+                : Mathf.LerpAngle(orbitYaw, targetYaw, Mathf.Clamp01(yawFollowSpeed * Time.deltaTime));
+            return;
+        }
+
+        UpdateMouseOrbit();
+    }
+
+    private float GetTargetPlanarYaw()
+    {
+        Vector3 planarForward = Vector3.ProjectOnPlane(target.forward, Vector3.up);
+        if (planarForward.sqrMagnitude < 0.001f)
+        {
+            planarForward = Vector3.forward;
+        }
+
+        return Quaternion.LookRotation(planarForward.normalized, Vector3.up).eulerAngles.y;
+    }
+
+    private void UpdateMouseOrbit()
     {
         if (!allowMouseOrbit)
         {

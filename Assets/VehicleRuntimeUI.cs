@@ -296,7 +296,15 @@ public class VehicleRuntimeUI : MonoBehaviour
         DrawSlider(ref follow.lookHeight, "注视点高度", 0f, 4f, "m");
         DrawSlider(ref follow.followSmoothTime, "位置平滑时间", 0.01f, 0.6f, "s");
         DrawSlider(ref follow.rotateSpeed, "旋转平滑速度", 1f, 15f, "");
+        DrawSlider(ref follow.yawFollowSpeed, "车尾视角追随速度", 1f, 25f, "");
         DrawSlider(ref follow.mouseSensitivity, "鼠标灵敏度", 0.01f, 0.5f, "");
+
+        bool lockBehind = GUILayout.Toggle(follow.lockBehindTarget, "始终锁定在车尾后方");
+        if (lockBehind != follow.lockBehindTarget)
+        {
+            follow.lockBehindTarget = lockBehind;
+            follow.SnapToTarget();
+        }
 
         bool allowOrbit = GUILayout.Toggle(follow.allowMouseOrbit, "允许鼠标绕车旋转");
         if (allowOrbit != follow.allowMouseOrbit)

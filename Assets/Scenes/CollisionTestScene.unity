@@ -635,7 +635,9 @@ MonoBehaviour:
   lookHeight: 1.2
   followSmoothTime: 0.18
   rotateSpeed: 8
-  allowMouseOrbit: 1
+  lockBehindTarget: 1
+  yawFollowSpeed: 12
+  allowMouseOrbit: 0
   requireLeftMouseHold: 1
   requireRightMouseHold: 0
   mouseSensitivity: 0.15
