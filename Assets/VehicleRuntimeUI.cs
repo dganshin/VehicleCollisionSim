@@ -62,6 +62,13 @@ public class VehicleRuntimeUI : MonoBehaviour
         }
 
         tree.transform.position = position;
+        CrashableTree crashableTree = tree.GetComponent<CrashableTree>();
+        if (crashableTree != null)
+        {
+            crashableTree.ResetTreePose(position);
+            return;
+        }
+
         Rigidbody body = tree.GetComponent<Rigidbody>();
         if (body != null)
         {

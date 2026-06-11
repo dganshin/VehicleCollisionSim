@@ -10,8 +10,12 @@ public class CrashableTree : MonoBehaviour
     public float fallAngle = 78f;
     public float fallDuration = 0.8f;
     public float impactNudgeDistance = 0.35f;
+    public float trunkRadius = 0.95f;
+    public float trunkHeight = 7f;
+    public Vector3 trunkCenter = new Vector3(0f, -2f, 0f);
 
     private Rigidbody rb;
+    private CapsuleCollider trunkCollider;
     private bool hasFallen;
     private Vector3 basePosition;
     private Quaternion uprightRotation;
@@ -19,8 +23,10 @@ public class CrashableTree : MonoBehaviour
     private void Awake()
     {
         rb = GetComponent<Rigidbody>();
+        trunkCollider = GetComponent<CapsuleCollider>();
         basePosition = transform.position;
         uprightRotation = transform.rotation;
+        ConfigureCollider();
         ConfigureRigidbody();
     }
 
@@ -31,6 +37,33 @@ public class CrashableTree : MonoBehaviour
         fallAngle = Mathf.Clamp(fallAngle, 20f, 88f);
         fallDuration = Mathf.Max(0.05f, fallDuration);
         impactNudgeDistance = Mathf.Max(0f, impactNudgeDistance);
+        trunkRadius = Mathf.Max(0.1f, trunkRadius);
+        trunkHeight = Mathf.Max(trunkRadius * 2f, trunkHeight);
+
+        if (trunkCollider == null)
+        {
+            trunkCollider = GetComponent<CapsuleCollider>();
+        }
+
+        ConfigureCollider();
+    }
+
+    public void ResetTreePose(Vector3 position)
+    {
+        StopAllCoroutines();
+        hasFallen = false;
+        basePosition = position;
+        uprightRotation = Quaternion.identity;
+        transform.SetPositionAndRotation(basePosition, uprightRotation);
+        ConfigureCollider();
+        ConfigureRigidbody();
+
+        if (rb != null)
+        {
+            rb.position = basePosition;
+            rb.rotation = uprightRotation;
+            rb.Sleep();
+        }
     }
 
     private void OnCollisionEnter(Collision collision)
@@ -85,6 +118,21 @@ public class CrashableTree : MonoBehaviour
             rb.rotation = targetRotation;
             rb.Sleep();
         }
+    }
+
+    private void ConfigureCollider()
+    {
+        if (trunkCollider == null)
+        {
+            return;
+        }
+
+        trunkCollider.enabled = true;
+        trunkCollider.isTrigger = false;
+        trunkCollider.direction = 1;
+        trunkCollider.radius = trunkRadius;
+        trunkCollider.height = trunkHeight;
+        trunkCollider.center = trunkCenter;
     }
 
     private void ConfigureRigidbody()
