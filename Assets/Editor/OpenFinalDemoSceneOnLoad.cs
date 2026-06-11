@@ -4,7 +4,7 @@ using UnityEngine.SceneManagement;
 
 public static class OpenFinalDemoSceneOnLoad
 {
-    private const string TargetScenePath = "Assets/Versatile Studio Assets/Demo City By Versatile Studio/Scenes/demo_city_night.unity";
+    private const string TargetScenePath = "Assets/Scenes/CollisionTestScene.unity";
     private const string SessionKey = "VehicleCollisionSim.OpenedFinalDemoScene";
 
     [InitializeOnLoadMethod]

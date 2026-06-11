@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 public class VehicleRuntimeUI : MonoBehaviour
 {
     public VehicleManager vehicleManager; // 车辆管理器，用来获取当前车辆和切车状态。
+    public SceneLightingController lightingController; // 运行时白天/黑夜切换控制器。
     public bool showPanel = true; // 是否显示运行时调参面板。
     public float panelWidth = 380f; // 面板宽度。
     public float panelHeight = 760f; // 面板高度。
@@ -30,6 +31,15 @@ public class VehicleRuntimeUI : MonoBehaviour
             if (vehicleManager == null)
             {
                 vehicleManager = FindFirstObjectByType<VehicleManager>();
+            }
+        }
+
+        if (lightingController == null)
+        {
+            lightingController = FindFirstObjectByType<SceneLightingController>();
+            if (lightingController == null)
+            {
+                lightingController = gameObject.AddComponent<SceneLightingController>();
             }
         }
     }
@@ -139,6 +149,15 @@ public class VehicleRuntimeUI : MonoBehaviour
             vehicleManager.ResetAllVehicles();
         }
         GUILayout.EndHorizontal();
+
+        if (lightingController != null)
+        {
+            string lightingLabel = lightingController.IsDay ? "切换到黑夜" : "切换到白天";
+            if (GUILayout.Button($"{lightingLabel}（当前：{lightingController.CurrentLabel}）", GUILayout.Height(28f)))
+            {
+                lightingController.ToggleDayNight();
+            }
+        }
 
         int vehicleCount = vehicleManager.VehicleCount;
         if (vehicleCount <= 0)

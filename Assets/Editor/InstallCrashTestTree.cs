@@ -216,14 +216,19 @@ public static class InstallCrashTestTree
             Vector3 candidate = vehicle.position + vehicle.forward * distance;
             if (TryProjectToGround(candidate, vehicle, generatedParent, out Vector3 groundedPosition))
             {
-                groundedPosition.y += TreeGroundLift;
+                groundedPosition.y += GetTreeLift(treeIndex);
                 return groundedPosition;
             }
         }
 
         Vector3 fallback = vehicle.position + vehicle.forward * baseDistance;
-        fallback.y = vehicle.position.y + TreeGroundLift;
+        fallback.y = vehicle.position.y + GetTreeLift(treeIndex);
         return fallback;
+    }
+
+    private static float GetTreeLift(int treeIndex)
+    {
+        return TreeGroundLift + treeIndex * 1.2f;
     }
 
     private static bool TryProjectToGround(Vector3 candidate, Transform vehicle, Transform generatedParent, out Vector3 groundedPosition)

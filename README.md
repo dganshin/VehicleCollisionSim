@@ -106,7 +106,7 @@ Packages/manifest.json
 1. 在 Unity Project 面板中打开场景：
 
 ```text
-Assets/Versatile Studio Assets/Demo City By Versatile Studio/Scenes/demo_city_night.unity
+Assets/Scenes/CollisionTestScene.unity
 ```
 
 2. 确认场景层级中存在以下关键对象：
@@ -148,7 +148,7 @@ CollisionTestObjects
 
 建议按以下顺序验证项目功能：
 
-1. 启动 `Assets/Versatile Studio Assets/Demo City By Versatile Studio/Scenes/demo_city_night.unity`。
+1. 启动 `Assets/Scenes/CollisionTestScene.unity`。
 2. 点击 `Play`，进入运行模式。
 3. 点击 `Game` 窗口获取输入焦点。
 4. 使用 `W/S/A/D` 驾驶当前车辆，确认车辆可以前进、后退和转向。
@@ -184,7 +184,7 @@ docs/test_cases.md
 VehicleCollisionSim/
 ├─ Assets/
 │  ├─ Scenes/
-│  │  └─ CollisionTestScene.unity
+│  │  └─ CollisionTestScene.unity    # 最终验收场景，已包含城市地图、车辆、UI 和测试树
 │  ├─ Versatile Studio Assets/
 │  │  └─ Demo City By Versatile Studio/
 │  │     └─ Scenes/
@@ -236,9 +236,9 @@ VehicleCollisionSim/
 
 - 车辆资源：`ARCADE - FREE Racing Car`
 - 城市与高速环境：`Demo City By Versatile Studio`
-- 备用基础测试场：`Assets/Scenes/CollisionTestScene.unity`
+- 最终验收场景：`Assets/Scenes/CollisionTestScene.unity`
 
-当前推荐验收场景是完整城市/高速道路场景，课程验收时建议重点展示车辆控制、车车碰撞、车辆与树木/桥梁/路沿等环境对象碰撞，以及运行时物理参数可视化。
+当前推荐验收场景已经保存为 `Assets/Scenes/CollisionTestScene.unity`，打开项目后不需要手动运行 Tools 脚本。课程验收时建议重点展示车辆控制、车车碰撞、车辆与树木/桥梁/路沿等环境对象碰撞，以及运行时物理参数可视化。
 
 ## 13. 常见问题
 
@@ -273,7 +273,7 @@ Packages/manifest.json
 确认打开的是：
 
 ```text
-Assets/Versatile Studio Assets/Demo City By Versatile Studio/Scenes/demo_city_night.unity
+Assets/Scenes/CollisionTestScene.unity
 ```
 
 并确认场景中存在：
@@ -287,7 +287,7 @@ VehicleRuntimeCameraAndManager
 CollisionTestObjects
 ```
 
-如果只想运行备用基础测试场，也可以打开 `Assets/Scenes/CollisionTestScene.unity`。
+该场景已经是最终城市/高速演示场景，不需要再点击 `Tools` 菜单生成地图或导入车辆。
 
 ## 14. 已知限制
 
@@ -320,7 +320,7 @@ docs/ai_usage_log.md
 提交前建议至少检查以下内容：
 
 - `README.md` 中的 Unity 版本、场景路径、按键说明与当前项目一致。
-- `Assets/Versatile Studio Assets/Demo City By Versatile Studio/Scenes/demo_city_night.unity` 可以正常打开并运行。
+- `Assets/Scenes/CollisionTestScene.unity` 可以正常打开并运行。
 - `Console` 中没有红色编译错误。
 - 车辆可以驱动、切换、重置。
 - 车车碰撞和车辆与环境碰撞可以演示。
