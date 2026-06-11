@@ -295,6 +295,8 @@ public static class InstallCrashTestTree
 
         CapsuleCollider trunkCollider = tree.AddComponent<CapsuleCollider>();
         ConfigureTrunkCollider(tree, trunkCollider);
+        BoxCollider baseCollider = tree.AddComponent<BoxCollider>();
+        ConfigureBaseCollider(baseCollider);
 
         CrashableTree crashableTree = tree.GetComponent<CrashableTree>();
         if (crashableTree == null)
@@ -307,23 +309,33 @@ public static class InstallCrashTestTree
         crashableTree.fallAngle = 78f;
         crashableTree.fallDuration = 0.8f;
         crashableTree.impactNudgeDistance = 0.35f;
-        crashableTree.trunkRadius = 0.95f;
-        crashableTree.trunkHeight = 7f;
-        crashableTree.trunkCenter = new Vector3(0f, -2f, 0f);
+        crashableTree.trunkRadius = 0.35f;
+        crashableTree.trunkHeight = 4.2f;
+        crashableTree.trunkCenter = new Vector3(0f, -1.25f, 0f);
+        crashableTree.baseColliderSize = new Vector3(1.35f, 0.8f, 1.35f);
+        crashableTree.baseColliderCenter = new Vector3(0f, -3.35f, 0f);
         crashableTree.fallenLinearDamping = 1.2f;
         crashableTree.fallenAngularDamping = 4f;
         crashableTree.fallImpactImpulse = 4f;
-        crashableTree.fallenPushSpeedScale = 0.55f;
-        crashableTree.fallenMaxPushSpeed = 4f;
+        crashableTree.fallenPushSpeedScale = 1.2f;
+        crashableTree.fallenMinimumPushSpeed = 1.1f;
+        crashableTree.fallenMaxPushSpeed = 8f;
     }
 
     private static void ConfigureTrunkCollider(GameObject tree, CapsuleCollider trunkCollider)
     {
         trunkCollider.direction = 1;
         trunkCollider.isTrigger = false;
-        trunkCollider.height = 7f;
-        trunkCollider.radius = 0.95f;
-        trunkCollider.center = new Vector3(0f, -2f, 0f);
+        trunkCollider.height = 4.2f;
+        trunkCollider.radius = 0.35f;
+        trunkCollider.center = new Vector3(0f, -1.25f, 0f);
+    }
+
+    private static void ConfigureBaseCollider(BoxCollider baseCollider)
+    {
+        baseCollider.isTrigger = false;
+        baseCollider.size = new Vector3(1.35f, 0.8f, 1.35f);
+        baseCollider.center = new Vector3(0f, -3.35f, 0f);
     }
 
     private static Bounds CalculateRendererBounds(GameObject tree)

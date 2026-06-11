@@ -10,17 +10,21 @@ public class CrashableTree : MonoBehaviour
     public float fallAngle = 78f;
     public float fallDuration = 0.8f;
     public float impactNudgeDistance = 0.35f;
-    public float trunkRadius = 0.95f;
-    public float trunkHeight = 7f;
-    public Vector3 trunkCenter = new Vector3(0f, -2f, 0f);
+    public float trunkRadius = 0.35f;
+    public float trunkHeight = 4.2f;
+    public Vector3 trunkCenter = new Vector3(0f, -1.25f, 0f);
+    public Vector3 baseColliderSize = new Vector3(1.35f, 0.8f, 1.35f);
+    public Vector3 baseColliderCenter = new Vector3(0f, -3.35f, 0f);
     public float fallenLinearDamping = 1.2f;
     public float fallenAngularDamping = 4f;
     public float fallImpactImpulse = 4f;
-    public float fallenPushSpeedScale = 0.55f;
-    public float fallenMaxPushSpeed = 4f;
+    public float fallenPushSpeedScale = 1.2f;
+    public float fallenMinimumPushSpeed = 1.1f;
+    public float fallenMaxPushSpeed = 8f;
 
     private Rigidbody rb;
     private CapsuleCollider trunkCollider;
+    private BoxCollider baseCollider;
     private bool hasFallen;
     private bool canBePushed;
     private Vector3 basePosition;
@@ -30,6 +34,7 @@ public class CrashableTree : MonoBehaviour
     {
         rb = GetComponent<Rigidbody>();
         trunkCollider = GetComponent<CapsuleCollider>();
+        baseCollider = GetComponent<BoxCollider>();
         basePosition = transform.position;
         uprightRotation = transform.rotation;
         ConfigureCollider();
@@ -45,15 +50,25 @@ public class CrashableTree : MonoBehaviour
         impactNudgeDistance = Mathf.Max(0f, impactNudgeDistance);
         trunkRadius = Mathf.Max(0.1f, trunkRadius);
         trunkHeight = Mathf.Max(trunkRadius * 2f, trunkHeight);
+        baseColliderSize = new Vector3(
+            Mathf.Max(0.1f, baseColliderSize.x),
+            Mathf.Max(0.1f, baseColliderSize.y),
+            Mathf.Max(0.1f, baseColliderSize.z));
         fallenLinearDamping = Mathf.Max(0f, fallenLinearDamping);
         fallenAngularDamping = Mathf.Max(0f, fallenAngularDamping);
         fallImpactImpulse = Mathf.Max(0f, fallImpactImpulse);
         fallenPushSpeedScale = Mathf.Max(0f, fallenPushSpeedScale);
+        fallenMinimumPushSpeed = Mathf.Max(0f, fallenMinimumPushSpeed);
         fallenMaxPushSpeed = Mathf.Max(0f, fallenMaxPushSpeed);
 
         if (trunkCollider == null)
         {
             trunkCollider = GetComponent<CapsuleCollider>();
+        }
+
+        if (baseCollider == null)
+        {
+            baseCollider = GetComponent<BoxCollider>();
         }
 
         ConfigureCollider();
@@ -104,7 +119,9 @@ public class CrashableTree : MonoBehaviour
             return;
         }
 
-        float speed = Mathf.Min(fallenMaxPushSpeed, collision.relativeVelocity.magnitude * fallenPushSpeedScale);
+        float speed = Mathf.Min(
+            fallenMaxPushSpeed,
+            Mathf.Max(fallenMinimumPushSpeed, collision.relativeVelocity.magnitude * fallenPushSpeedScale));
         if (speed <= 0.001f)
         {
             return;
@@ -182,6 +199,19 @@ public class CrashableTree : MonoBehaviour
         trunkCollider.radius = trunkRadius;
         trunkCollider.height = trunkHeight;
         trunkCollider.center = trunkCenter;
+
+        if (baseCollider == null && Application.isPlaying)
+        {
+            baseCollider = gameObject.AddComponent<BoxCollider>();
+        }
+
+        if (baseCollider != null)
+        {
+            baseCollider.enabled = true;
+            baseCollider.isTrigger = false;
+            baseCollider.size = baseColliderSize;
+            baseCollider.center = baseColliderCenter;
+        }
     }
 
     private void ConfigureRigidbody()
