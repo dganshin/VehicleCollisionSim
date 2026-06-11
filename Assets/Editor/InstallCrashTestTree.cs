@@ -310,6 +310,9 @@ public static class InstallCrashTestTree
         crashableTree.trunkRadius = 0.95f;
         crashableTree.trunkHeight = 7f;
         crashableTree.trunkCenter = new Vector3(0f, -2f, 0f);
+        crashableTree.fallenLinearDamping = 1.2f;
+        crashableTree.fallenAngularDamping = 4f;
+        crashableTree.fallImpactImpulse = 4f;
     }
 
     private static void ConfigureTrunkCollider(GameObject tree, CapsuleCollider trunkCollider)

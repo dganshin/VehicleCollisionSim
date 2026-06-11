@@ -13,6 +13,9 @@ public class CrashableTree : MonoBehaviour
     public float trunkRadius = 0.95f;
     public float trunkHeight = 7f;
     public Vector3 trunkCenter = new Vector3(0f, -2f, 0f);
+    public float fallenLinearDamping = 1.2f;
+    public float fallenAngularDamping = 4f;
+    public float fallImpactImpulse = 4f;
 
     private Rigidbody rb;
     private CapsuleCollider trunkCollider;
@@ -39,6 +42,9 @@ public class CrashableTree : MonoBehaviour
         impactNudgeDistance = Mathf.Max(0f, impactNudgeDistance);
         trunkRadius = Mathf.Max(0.1f, trunkRadius);
         trunkHeight = Mathf.Max(trunkRadius * 2f, trunkHeight);
+        fallenLinearDamping = Mathf.Max(0f, fallenLinearDamping);
+        fallenAngularDamping = Mathf.Max(0f, fallenAngularDamping);
+        fallImpactImpulse = Mathf.Max(0f, fallImpactImpulse);
 
         if (trunkCollider == null)
         {
@@ -116,7 +122,7 @@ public class CrashableTree : MonoBehaviour
         {
             rb.position = targetPosition;
             rb.rotation = targetRotation;
-            rb.Sleep();
+            ConfigureFallenRigidbody(impactDirection);
         }
     }
 
@@ -154,6 +160,38 @@ public class CrashableTree : MonoBehaviour
         rb.velocity = Vector3.zero;
 #endif
         rb.angularVelocity = Vector3.zero;
+    }
+
+    private void ConfigureFallenRigidbody(Vector3 impactDirection)
+    {
+        if (rb == null)
+        {
+            return;
+        }
+
+        rb.mass = mass;
+        rb.useGravity = true;
+        rb.isKinematic = false;
+        rb.interpolation = RigidbodyInterpolation.Interpolate;
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        rb.constraints = RigidbodyConstraints.None;
+#if UNITY_6000_0_OR_NEWER
+        rb.linearDamping = fallenLinearDamping;
+        rb.angularDamping = fallenAngularDamping;
+        rb.linearVelocity = Vector3.zero;
+#else
+        rb.drag = fallenLinearDamping;
+        rb.angularDrag = fallenAngularDamping;
+        rb.velocity = Vector3.zero;
+#endif
+        rb.angularVelocity = Vector3.zero;
+
+        if (impactDirection.sqrMagnitude > 0.01f && fallImpactImpulse > 0f)
+        {
+            rb.AddForce(impactDirection.normalized * fallImpactImpulse, ForceMode.Impulse);
+        }
+
+        rb.WakeUp();
     }
 
     private static bool IsVehicleCollision(Collider other)
