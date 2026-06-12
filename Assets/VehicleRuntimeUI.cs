@@ -356,6 +356,8 @@ public class VehicleRuntimeUI : MonoBehaviour
         changed |= DrawSlider(ref vehicle.bumperZoneThreshold, "保险杠区域阈值", 0.2f, 3f, "x");
         changed |= DrawSlider(ref vehicle.contactPushAcceleration, "持续顶车推力", 0f, 40f, "m/s²");
         changed |= DrawSlider(ref vehicle.contactSelfFollowSpeedRatio, "主车推车跟随比例", 0f, 1f, "x");
+        changed |= DrawSlider(ref vehicle.passiveCollisionPitchDamping, "被撞车俯仰阻尼", 0f, 1f, "x");
+        changed |= DrawSlider(ref vehicle.passiveCollisionMaxUpwardSpeed, "被撞车上抬速度上限", 0f, 1f, "m/s");
         changed |= DrawSlider(ref vehicle.collisionReverseBodyAssistAcceleration, "碰撞反向车身辅助加速度", 0f, 30f, "m/s²");
         changed |= DrawSlider(ref vehicle.collisionReverseBodyAssistSpeedThreshold, "碰撞反向车身辅助速度阈值", 0.2f, 6f, "m/s");
         changed |= DrawSlider(ref vehicle.collisionReverseBodyVelocitySeed, "碰撞反向车身速度种子", 0f, 4f, "m/s");

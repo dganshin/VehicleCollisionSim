@@ -6,7 +6,7 @@ using System.IO;
 
 public class SimpleCarController : MonoBehaviour
 {
-    private const string CurrentBuildTagValue = "unified_vehicle_drive_2026_06_12_v17";
+    private const string CurrentBuildTagValue = "collision_slide_response_2026_06_12_v19";
     private const float CurrentMotorAccelerationValue = 6400f;
     private const float CurrentStartBoostAccelerationValue = 8400f;
     private const float CurrentWheelTorqueScaleValue = 1.4f;
@@ -18,15 +18,15 @@ public class SimpleCarController : MonoBehaviour
     private const float CurrentCenterOfMassYValue = -0.05f;
     private const float CurrentRuntimeAngularDampingValue = 1.6f;
     private const bool CurrentUseInactiveCollisionTuningValue = true;
-    private const float CurrentInactivePushAssistSpeedValue = 8f;
-    private const float CurrentInactivePushAssistMaxTargetSpeedValue = 22f;
-    private const float CurrentInactivePushAssistImpulseThresholdValue = 4f;
-    private const float CurrentInactivePushAssistTuningDurationValue = 1f;
-    private const float CurrentContactImpulseTransferScaleValue = 7f;
-    private const float CurrentContactPushVelocityStepValue = 2.8f;
+    private const float CurrentInactivePushAssistSpeedValue = 6f;
+    private const float CurrentInactivePushAssistMaxTargetSpeedValue = 20f;
+    private const float CurrentInactivePushAssistImpulseThresholdValue = 2f;
+    private const float CurrentInactivePushAssistTuningDurationValue = 1.4f;
+    private const float CurrentContactImpulseTransferScaleValue = 4.2f;
+    private const float CurrentContactPushVelocityStepValue = 1.4f;
     private const float CurrentContactStaticPushSpeedThresholdValue = 3.5f;
-    private const float CurrentContactMinimumPushSpeedValue = 3.5f;
-    private const float CurrentContactImmediateVelocitySeedValue = 4f;
+    private const float CurrentContactMinimumPushSpeedValue = 1.4f;
+    private const float CurrentContactImmediateVelocitySeedValue = 1.6f;
     private const float CurrentContactPushSpeedThresholdValue = 30f;
     private const float CurrentContactPushAlignmentThresholdValue = 0.2f;
     private const float CurrentBumperZoneThresholdValue = 0.8f;
@@ -44,8 +44,10 @@ public class SimpleCarController : MonoBehaviour
     private const float CurrentResponsiveBodyDriveSpeedThresholdValue = 4f;
     private const float CurrentResponsiveBodyDriveVelocitySeedValue = 1.2f;
     private const float CurrentDirectionChangeDriveBoostValue = 1.6f;
-    private const float CurrentContactPushAccelerationValue = 18f;
-    private const float CurrentContactSelfFollowSpeedRatioValue = 0.8f;
+    private const float CurrentContactPushAccelerationValue = 7f;
+    private const float CurrentContactSelfFollowSpeedRatioValue = 0f;
+    private const float CurrentPassiveCollisionPitchDampingValue = 0.18f;
+    private const float CurrentPassiveCollisionMaxUpwardSpeedValue = 0.05f;
     private const float CurrentMinimumDrivenAccelerationValue = 6f;
     private const float CurrentMinimumReverseAccelerationValue = 3.5f;
     private const float CurrentControlledForwardFrictionStiffnessValue = 1.25f;
@@ -115,20 +117,22 @@ public class SimpleCarController : MonoBehaviour
     public float bodyDynamicFriction = 0.06f; // 运行时车身碰撞体材质的动摩擦系数。
     public bool liftVehicleAboveGroundOnStart = true; // 是否在启动时把车辆轻微抬起，避免出生时和地面穿插。
     public float startGroundClearance = 0.03f; // 启动离地校正后，车辆最低点与地面保留的额外间隙。
-    public float inactivePushAssistSpeed = 8f; // 非激活静止车辆在被撞时附加的启动速度；演示档优先保证车车碰撞有可见位移。
-    public float inactivePushAssistMaxTargetSpeed = 22f; // 非激活车辆低于该速度时使用启动辅助；放宽到中速碰撞，避免看起来像焊死。
-    public float inactivePushAssistImpulseThreshold = 4f; // 纵向冲量触发门槛；降低后中低速追尾更容易推动目标车。
-    public float inactivePushAssistTuningDuration = 1f; // 被顶车辆短时间切到更易滚动配置，避免后轮抬起但车身不走。
-    public float contactImpulseTransferScale = 7f; // 前后向碰撞冲量到目标车速度变化的转换倍率；演示档提高碰撞反馈。
-    public float contactPushVelocityStep = 2.8f; // 当前控制车贴住静止目标持续给油时，每个物理步补给目标车的纵向速度步进。
+    public float inactivePushAssistSpeed = 6f; // 非激活静止车辆在被撞时附加的启动速度，让前车像空挡一样被撞开滑行。
+    public float inactivePushAssistMaxTargetSpeed = 20f; // 非激活车辆低于该速度时使用启动辅助；限制上限避免重撞直接飞出去。
+    public float inactivePushAssistImpulseThreshold = 2f; // 纵向冲量触发门槛；轻撞也应能推动前车。
+    public float inactivePushAssistTuningDuration = 1.4f; // 被顶车辆短时间切到更易滚动配置，避免后轮抬起但车身不走。
+    public float contactImpulseTransferScale = 4.2f; // 前后向碰撞冲量到目标车速度变化的转换倍率；压低后避免前车被拱飞。
+    public float contactPushVelocityStep = 1.4f; // 当前控制车贴住静止目标持续给油时，每个物理步补给目标车的纵向速度步进。
     public float contactStaticPushSpeedThreshold = 3.5f; // 两车接近静止时启用贴住推车步进的速度阈值。
-    public float contactMinimumPushSpeed = 3.5f; // 低速正面追尾时目标车至少建立的前后向启动速度。
-    public float contactImmediateVelocitySeed = 4f; // 正面撞击当下给目标车建立的最低纵向速度种子，避免只抬轮不走。
+    public float contactMinimumPushSpeed = 1.4f; // 低速正面追尾时目标车至少建立的前后向启动速度。
+    public float contactImmediateVelocitySeed = 1.6f; // 正面撞击当下给目标车建立的最低纵向速度种子，避免只抬轮不走。
     public float contactPushSpeedThreshold = 30f; // 接触推车辅助允许的主车速度上限；覆盖中速碰撞展示。
     public float contactPushAlignmentThreshold = 0.2f; // 接触方向与车辆前后方向的对齐阈值；降低后斜向追尾也能触发。
     public float bumperZoneThreshold = 0.8f; // 接触点前后向占比阈值；降低后保险杠附近碰撞不易漏判。
-    public float contactPushAcceleration = 18f; // 持续顶住另一辆车时施加的连续推送加速度，避免一走一停。
-    public float contactSelfFollowSpeedRatio = 0.8f; // 推车时主控车跟随目标速度的比例，避免自己顶住后掉成 0。
+    public float contactPushAcceleration = 7f; // 持续顶住另一辆车时施加的连续推送加速度，避免过大时把前车拱起来。
+    public float contactSelfFollowSpeedRatio = 0f; // 默认不强制主车跟随前车速度，避免后车持续钻到前车下面。
+    public float passiveCollisionPitchDamping = 0.18f; // 被撞车辆获得水平速度后，对俯仰/横滚角速度做阻尼，避免被后车拱起来。
+    public float passiveCollisionMaxUpwardSpeed = 0.05f; // 被撞车辆碰撞滑行时允许保留的最大向上速度，超过则压回水平滑行。
     public float collisionReverseAssistBrakeTorque = 2800f; // 旧调试参数保留；当前碰撞换向不再靠刹旧轮速，而是直接施加反向驱动。
     public float collisionReverseAssistLockTime = 0.03f; // 碰撞状态下的反向辅助刹轮时间，比普通换向更短，只用于尽快把控制权交给新方向。
     public float collisionReverseBodyAssistAcceleration = 16f; // 碰撞态反向时，直接给车身一个小的反向加速度，避免必须等轮子先完全消掉旧扭矩才开始后退。
@@ -298,6 +302,8 @@ public class SimpleCarController : MonoBehaviour
         bumperZoneThreshold = CurrentBumperZoneThresholdValue;
         contactPushAcceleration = CurrentContactPushAccelerationValue;
         contactSelfFollowSpeedRatio = CurrentContactSelfFollowSpeedRatioValue;
+        passiveCollisionPitchDamping = CurrentPassiveCollisionPitchDampingValue;
+        passiveCollisionMaxUpwardSpeed = CurrentPassiveCollisionMaxUpwardSpeedValue;
         directionChangeSpeedThreshold = CurrentDirectionChangeSpeedThresholdValue;
         directionChangeDriveBoost = CurrentDirectionChangeDriveBoostValue;
         stationaryReverseRpmThreshold = CurrentStationaryReverseRpmThresholdValue;
@@ -644,6 +650,8 @@ public class SimpleCarController : MonoBehaviour
         bumperZoneThreshold = source.bumperZoneThreshold;
         contactPushAcceleration = source.contactPushAcceleration;
         contactSelfFollowSpeedRatio = source.contactSelfFollowSpeedRatio;
+        passiveCollisionPitchDamping = source.passiveCollisionPitchDamping;
+        passiveCollisionMaxUpwardSpeed = source.passiveCollisionMaxUpwardSpeed;
         collisionReverseAssistBrakeTorque = source.collisionReverseAssistBrakeTorque;
         collisionReverseAssistLockTime = source.collisionReverseAssistLockTime;
         collisionReverseBodyAssistAcceleration = source.collisionReverseBodyAssistAcceleration;
@@ -1110,7 +1118,7 @@ public class SimpleCarController : MonoBehaviour
                 float requiredDelta = targetAlong - currentAlong;
                 if (requiredDelta > 0.0001f)
                 {
-                    rb.AddForce(pushDirection * requiredDelta, ForceMode.VelocityChange);
+                    ApplyPassiveCollisionSlide(rb, pushDirection, targetAlong);
                 }
             }
 
@@ -1153,6 +1161,17 @@ public class SimpleCarController : MonoBehaviour
     }
 
     private void OnCollisionStay(Collision collision)
+    {
+        if (rb == null || !isControlled)
+        {
+            return;
+        }
+
+        ApplyControlledContactPush(collision);
+        ApplyCollisionReverseAssist(collision);
+    }
+
+    private void OnCollisionEnter(Collision collision)
     {
         if (rb == null || !isControlled)
         {
@@ -1244,12 +1263,12 @@ public class SimpleCarController : MonoBehaviour
         if (otherController != null)
         {
             otherController.PrepareForPassivePush();
-            EnsurePlanarSpeedAlong(otherRb, targetPushDirection, seededPushSpeed);
+            ApplyPassiveCollisionSlide(otherRb, targetPushDirection, seededPushSpeed);
             otherController.QueueInactivePush(targetPushDirection, pushSpeed);
         }
         else
         {
-            EnsurePlanarSpeedAlong(otherRb, targetPushDirection, seededPushSpeed);
+            ApplyPassiveCollisionSlide(otherRb, targetPushDirection, seededPushSpeed);
         }
     }
 
@@ -1268,11 +1287,61 @@ public class SimpleCarController : MonoBehaviour
 
         float acceleration = contactPushAcceleration * throttle;
         otherRb.AddForce(targetPushDirection * acceleration, ForceMode.Acceleration);
+        ApplyPassiveCollisionSlide(otherRb, targetPushDirection, seededPushSpeed);
 
-        float selfFollowSpeed = Mathf.Min(
-            contactPushSpeedThreshold,
-            Mathf.Max(contactMinimumPushSpeed, seededPushSpeed * Mathf.Clamp01(contactSelfFollowSpeedRatio)));
-        EnsurePlanarSpeedAlong(rb, ownPushDirection, selfFollowSpeed);
+        if (contactSelfFollowSpeedRatio > 0.001f)
+        {
+            float selfFollowSpeed = Mathf.Min(
+                contactPushSpeedThreshold,
+                Mathf.Max(contactMinimumPushSpeed, seededPushSpeed * Mathf.Clamp01(contactSelfFollowSpeedRatio)));
+            EnsurePlanarSpeedAlong(rb, ownPushDirection, selfFollowSpeed);
+        }
+    }
+
+    private void ApplyPassiveCollisionSlide(Rigidbody targetRigidbody, Vector3 targetPushDirection, float desiredAlongSpeed)
+    {
+        if (targetRigidbody == null || desiredAlongSpeed <= 0.0001f)
+        {
+            return;
+        }
+
+        Vector3 planarDirection = Vector3.ProjectOnPlane(targetPushDirection, Vector3.up);
+        if (planarDirection.sqrMagnitude < 0.0001f)
+        {
+            return;
+        }
+
+        planarDirection.Normalize();
+        Vector3 currentVelocity = GetLinearVelocity(targetRigidbody);
+        Vector3 planarVelocity = Vector3.ProjectOnPlane(currentVelocity, Vector3.up);
+        Vector3 verticalVelocity = Vector3.Project(currentVelocity, Vector3.up);
+        float currentAlongSpeed = Vector3.Dot(planarVelocity, planarDirection);
+
+        if (currentAlongSpeed < desiredAlongSpeed)
+        {
+            Vector3 lateralVelocity = planarVelocity - planarDirection * currentAlongSpeed;
+            planarVelocity = lateralVelocity + planarDirection * desiredAlongSpeed;
+        }
+
+        float upwardSpeed = Vector3.Dot(verticalVelocity, Vector3.up);
+        if (upwardSpeed > passiveCollisionMaxUpwardSpeed)
+        {
+            verticalVelocity = Vector3.up * Mathf.Max(0f, passiveCollisionMaxUpwardSpeed);
+        }
+
+#if UNITY_6000_0_OR_NEWER
+        targetRigidbody.linearVelocity = planarVelocity + verticalVelocity;
+#else
+        targetRigidbody.velocity = planarVelocity + verticalVelocity;
+#endif
+
+        Vector3 angularVelocity = targetRigidbody.angularVelocity;
+        float pitchRollScale = Mathf.Clamp01(passiveCollisionPitchDamping);
+        targetRigidbody.angularVelocity = new Vector3(
+            angularVelocity.x * pitchRollScale,
+            angularVelocity.y,
+            angularVelocity.z * pitchRollScale);
+        targetRigidbody.WakeUp();
     }
 
     private void ApplyCollisionReverseAssist(Collision collision)
