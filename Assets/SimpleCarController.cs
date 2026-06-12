@@ -6,7 +6,7 @@ using System.IO;
 
 public class SimpleCarController : MonoBehaviour
 {
-    private const string CurrentBuildTagValue = "coast_fix_scene_sync_2026_06_11_v13_collision_showcase";
+    private const string CurrentBuildTagValue = "responsive_drive_2026_06_12_v15";
     private const float CurrentMotorAccelerationValue = 6400f;
     private const float CurrentStartBoostAccelerationValue = 8400f;
     private const float CurrentWheelTorqueScaleValue = 1.4f;
@@ -16,28 +16,34 @@ public class SimpleCarController : MonoBehaviour
     private const float CurrentCenterOfMassYValue = -0.05f;
     private const float CurrentRuntimeAngularDampingValue = 1.6f;
     private const bool CurrentUseInactiveCollisionTuningValue = true;
-    private const float CurrentInactivePushAssistSpeedValue = 5f;
-    private const float CurrentInactivePushAssistMaxTargetSpeedValue = 12f;
-    private const float CurrentInactivePushAssistImpulseThresholdValue = 8f;
+    private const float CurrentInactivePushAssistSpeedValue = 8f;
+    private const float CurrentInactivePushAssistMaxTargetSpeedValue = 22f;
+    private const float CurrentInactivePushAssistImpulseThresholdValue = 4f;
     private const float CurrentInactivePushAssistTuningDurationValue = 1f;
-    private const float CurrentContactImpulseTransferScaleValue = 4.5f;
-    private const float CurrentContactPushVelocityStepValue = 1.1f;
+    private const float CurrentContactImpulseTransferScaleValue = 7f;
+    private const float CurrentContactPushVelocityStepValue = 2.8f;
     private const float CurrentContactStaticPushSpeedThresholdValue = 3.5f;
-    private const float CurrentContactMinimumPushSpeedValue = 1.8f;
-    private const float CurrentContactImmediateVelocitySeedValue = 2.4f;
-    private const float CurrentContactPushSpeedThresholdValue = 18f;
+    private const float CurrentContactMinimumPushSpeedValue = 3.5f;
+    private const float CurrentContactImmediateVelocitySeedValue = 4f;
+    private const float CurrentContactPushSpeedThresholdValue = 30f;
     private const float CurrentContactPushAlignmentThresholdValue = 0.2f;
     private const float CurrentBumperZoneThresholdValue = 0.8f;
-    private const float CurrentDirectionChangeSpeedThresholdValue = 0.25f;
+    private const float CurrentDirectionChangeSpeedThresholdValue = 4f;
     private const float CurrentStationaryReverseRpmThresholdValue = 260f;
-    private const float CurrentStationaryReverseBrakeTorqueValue = 1800f;
-    private const float CurrentStationaryReverseLockTimeValue = 0.08f;
+    private const float CurrentStationaryReverseBrakeTorqueValue = 0f;
+    private const float CurrentStationaryReverseLockTimeValue = 0f;
     private const float CurrentCollisionReverseAssistBrakeTorqueValue = 2800f;
     private const float CurrentCollisionReverseAssistLockTimeValue = 0.03f;
     private const float CurrentCollisionReverseBodyAssistAccelerationValue = 16f;
     private const float CurrentCollisionReverseBodyAssistSpeedThresholdValue = 3f;
     private const float CurrentCollisionReverseBodyVelocitySeedValue = 1.2f;
     private const float CurrentBlockedReverseWheelRpmCancelThresholdValue = 80f;
+    private const float CurrentResponsiveBodyDriveAccelerationValue = 22f;
+    private const float CurrentResponsiveBodyDriveSpeedThresholdValue = 4f;
+    private const float CurrentResponsiveBodyDriveVelocitySeedValue = 1.2f;
+    private const float CurrentDirectionChangeDriveBoostValue = 1.6f;
+    private const float CurrentContactPushAccelerationValue = 18f;
+    private const float CurrentContactSelfFollowSpeedRatioValue = 0.8f;
 
     public bool isControlled = false; // 当前这辆车是否接收玩家输入。
     public string debugBuildTag = CurrentBuildTagValue; // 仅用于在 Inspector 中确认当前场景实例是否真的吃到了这轮修改。
@@ -89,35 +95,41 @@ public class SimpleCarController : MonoBehaviour
     public float coastingOppositeSpinRpmThreshold = 120f; // 只有反号轮速达到该阈值后才介入，避免正常细小抖动被误判。
     public float lowSpeedCoastThreshold = 2.2f; // 低于该速度后开始补一点尾速收口，避免低速滑太久停不下来。
     public float lowSpeedCoastBrakeTorque = 0f; // 低速空挡尾速收口使用的小刹车扭矩；默认关闭，避免再次出现“低速突然一脚刹车”。
-    public float directionChangeSpeedThreshold = 0.25f; // 当前进/后退方向与输入相反且速度高于该阈值时，先刹停再反向驱动；略降低，让低速反向更快进入新方向。
-    public float directionChangeBrakeTorque = 2500f; // 换向阶段附加的刹车扭矩，用来避免先顺着旧方向多滑一截。
+    public float directionChangeSpeedThreshold = 4f; // 低于该速度时，W/S 换向不再先刹停，而是立刻给新方向驱动。
+    public float directionChangeBrakeTorque = 2500f; // 旧调试参数保留；当前 W/S 换向不再靠清空扭矩再刹停。
+    public float directionChangeDriveBoost = 1.6f; // 前进中立刻按 S 或倒车中立刻按 W 时，对新方向扭矩做短促增强。
     public float stationaryReverseRpmThreshold = 260f; // 旧调试参数保留；当前不再用驱动轮 rpm 阻塞 W/S 换向。
-    public float stationaryReverseBrakeTorque = 1800f; // 旧调试参数保留；当前碰撞换向优先直接给反向驱动，不再等待刹完旧轮速。
-    public float stationaryReverseLockTime = 0.08f; // 静止受阻时前后换向的强制刹轮时间；缩短，让 W/S 切换更快进入新方向。
+    public float stationaryReverseBrakeTorque = 0f; // 静止受阻换向不再补刹车，避免抵墙/顶车后 S/W 需要先等旧轮速卸完。
+    public float stationaryReverseLockTime = 0f; // 静止受阻换向不再加锁，玩家输入应立即进入新方向。
     public bool holdBrakeAtIdle = false; // 是否在几乎静止且无输入时自动补一点刹车，当前默认关闭以保留自然滑停。
     public bool applyLowFrictionMaterial = true; // 是否在运行时给车身碰撞体附加低摩擦材质。
     public float bodyStaticFriction = 0.08f; // 运行时车身碰撞体材质的静摩擦系数。
     public float bodyDynamicFriction = 0.06f; // 运行时车身碰撞体材质的动摩擦系数。
     public bool liftVehicleAboveGroundOnStart = true; // 是否在启动时把车辆轻微抬起，避免出生时和地面穿插。
     public float startGroundClearance = 0.03f; // 启动离地校正后，车辆最低点与地面保留的额外间隙。
-    public float inactivePushAssistSpeed = 5f; // 非激活静止车辆在被撞时附加的启动速度；演示档优先保证车车碰撞有可见位移。
-    public float inactivePushAssistMaxTargetSpeed = 12f; // 非激活车辆低于该速度时使用启动辅助；放宽到中速碰撞，避免看起来像焊死。
-    public float inactivePushAssistImpulseThreshold = 8f; // 纵向冲量触发门槛；降低后中低速追尾更容易推动目标车。
+    public float inactivePushAssistSpeed = 8f; // 非激活静止车辆在被撞时附加的启动速度；演示档优先保证车车碰撞有可见位移。
+    public float inactivePushAssistMaxTargetSpeed = 22f; // 非激活车辆低于该速度时使用启动辅助；放宽到中速碰撞，避免看起来像焊死。
+    public float inactivePushAssistImpulseThreshold = 4f; // 纵向冲量触发门槛；降低后中低速追尾更容易推动目标车。
     public float inactivePushAssistTuningDuration = 1f; // 被顶车辆短时间切到更易滚动配置，避免后轮抬起但车身不走。
-    public float contactImpulseTransferScale = 4.5f; // 前后向碰撞冲量到目标车速度变化的转换倍率；演示档提高碰撞反馈。
-    public float contactPushVelocityStep = 1.1f; // 当前控制车贴住静止目标持续给油时，每个物理步补给目标车的纵向速度步进。
+    public float contactImpulseTransferScale = 7f; // 前后向碰撞冲量到目标车速度变化的转换倍率；演示档提高碰撞反馈。
+    public float contactPushVelocityStep = 2.8f; // 当前控制车贴住静止目标持续给油时，每个物理步补给目标车的纵向速度步进。
     public float contactStaticPushSpeedThreshold = 3.5f; // 两车接近静止时启用贴住推车步进的速度阈值。
-    public float contactMinimumPushSpeed = 1.8f; // 低速正面追尾时目标车至少建立的前后向启动速度。
-    public float contactImmediateVelocitySeed = 2.4f; // 正面撞击当下给目标车建立的最低纵向速度种子，避免只抬轮不走。
-    public float contactPushSpeedThreshold = 18f; // 接触推车辅助允许的主车速度上限；覆盖中速碰撞展示。
+    public float contactMinimumPushSpeed = 3.5f; // 低速正面追尾时目标车至少建立的前后向启动速度。
+    public float contactImmediateVelocitySeed = 4f; // 正面撞击当下给目标车建立的最低纵向速度种子，避免只抬轮不走。
+    public float contactPushSpeedThreshold = 30f; // 接触推车辅助允许的主车速度上限；覆盖中速碰撞展示。
     public float contactPushAlignmentThreshold = 0.2f; // 接触方向与车辆前后方向的对齐阈值；降低后斜向追尾也能触发。
     public float bumperZoneThreshold = 0.8f; // 接触点前后向占比阈值；降低后保险杠附近碰撞不易漏判。
+    public float contactPushAcceleration = 18f; // 持续顶住另一辆车时施加的连续推送加速度，避免一走一停。
+    public float contactSelfFollowSpeedRatio = 0.8f; // 推车时主控车跟随目标速度的比例，避免自己顶住后掉成 0。
     public float collisionReverseAssistBrakeTorque = 2800f; // 旧调试参数保留；当前碰撞换向不再靠刹旧轮速，而是直接施加反向驱动。
     public float collisionReverseAssistLockTime = 0.03f; // 碰撞状态下的反向辅助刹轮时间，比普通换向更短，只用于尽快把控制权交给新方向。
     public float collisionReverseBodyAssistAcceleration = 16f; // 碰撞态反向时，直接给车身一个小的反向加速度，避免必须等轮子先完全消掉旧扭矩才开始后退。
     public float collisionReverseBodyAssistSpeedThreshold = 3f; // 只有在较低前后速度下才启用碰撞态反向车身辅助，避免正常高速驾驶时被误触发。
     public float collisionReverseBodyVelocitySeed = 1.2f; // 碰撞态反向时，车身沿新方向至少建立起的最低速度种子，避免要等几秒才终于开始后退。
     public float blockedReverseWheelRpmCancelThreshold = 80f; // 撞住静态/动态障碍后换向时，驱动轮残余转速超过该值就直接进入碰撞态反向辅助。
+    public float responsiveBodyDriveAcceleration = 22f; // 低速或受阻时的车身辅助驱动力，让 W/S 输入不再完全受 WheelCollider 残余轮速支配。
+    public float responsiveBodyDriveSpeedThreshold = 4f; // 低于该前后速度时启动车身辅助；覆盖抵墙、顶车和低速换向。
+    public float responsiveBodyDriveVelocitySeed = 1.2f; // 低速/受阻时沿输入方向建立的最低速度，避免按反方向后等很久才动。
 
     private Rigidbody rb;
     private WheelCollider[] cachedWheelColliders;
@@ -268,7 +280,10 @@ public class SimpleCarController : MonoBehaviour
         contactPushSpeedThreshold = CurrentContactPushSpeedThresholdValue;
         contactPushAlignmentThreshold = CurrentContactPushAlignmentThresholdValue;
         bumperZoneThreshold = CurrentBumperZoneThresholdValue;
+        contactPushAcceleration = CurrentContactPushAccelerationValue;
+        contactSelfFollowSpeedRatio = CurrentContactSelfFollowSpeedRatioValue;
         directionChangeSpeedThreshold = CurrentDirectionChangeSpeedThresholdValue;
+        directionChangeDriveBoost = CurrentDirectionChangeDriveBoostValue;
         stationaryReverseRpmThreshold = CurrentStationaryReverseRpmThresholdValue;
         stationaryReverseBrakeTorque = CurrentStationaryReverseBrakeTorqueValue;
         stationaryReverseLockTime = CurrentStationaryReverseLockTimeValue;
@@ -278,6 +293,9 @@ public class SimpleCarController : MonoBehaviour
         collisionReverseBodyAssistSpeedThreshold = CurrentCollisionReverseBodyAssistSpeedThresholdValue;
         collisionReverseBodyVelocitySeed = CurrentCollisionReverseBodyVelocitySeedValue;
         blockedReverseWheelRpmCancelThreshold = CurrentBlockedReverseWheelRpmCancelThresholdValue;
+        responsiveBodyDriveAcceleration = CurrentResponsiveBodyDriveAccelerationValue;
+        responsiveBodyDriveSpeedThreshold = CurrentResponsiveBodyDriveSpeedThresholdValue;
+        responsiveBodyDriveVelocitySeed = CurrentResponsiveBodyDriveVelocitySeedValue;
     }
 
     private void FixedUpdate()
@@ -379,6 +397,7 @@ public class SimpleCarController : MonoBehaviour
         {
             // 有现成轮子时，直接驱动轮子，比给整车硬推更接近车辆行为。
             ApplyWheelDrive(horizontalSpeed, brakePressed);
+            ApplyResponsiveBodyDriveAssist(horizontalSpeed, brakePressed);
         }
         else
         {
@@ -570,6 +589,7 @@ public class SimpleCarController : MonoBehaviour
         lowSpeedCoastBrakeTorque = source.lowSpeedCoastBrakeTorque;
         directionChangeSpeedThreshold = source.directionChangeSpeedThreshold;
         directionChangeBrakeTorque = source.directionChangeBrakeTorque;
+        directionChangeDriveBoost = source.directionChangeDriveBoost;
         stationaryReverseRpmThreshold = source.stationaryReverseRpmThreshold;
         stationaryReverseBrakeTorque = source.stationaryReverseBrakeTorque;
         stationaryReverseLockTime = source.stationaryReverseLockTime;
@@ -591,12 +611,17 @@ public class SimpleCarController : MonoBehaviour
         contactPushSpeedThreshold = source.contactPushSpeedThreshold;
         contactPushAlignmentThreshold = source.contactPushAlignmentThreshold;
         bumperZoneThreshold = source.bumperZoneThreshold;
+        contactPushAcceleration = source.contactPushAcceleration;
+        contactSelfFollowSpeedRatio = source.contactSelfFollowSpeedRatio;
         collisionReverseAssistBrakeTorque = source.collisionReverseAssistBrakeTorque;
         collisionReverseAssistLockTime = source.collisionReverseAssistLockTime;
         collisionReverseBodyAssistAcceleration = source.collisionReverseBodyAssistAcceleration;
         collisionReverseBodyAssistSpeedThreshold = source.collisionReverseBodyAssistSpeedThreshold;
         collisionReverseBodyVelocitySeed = source.collisionReverseBodyVelocitySeed;
         blockedReverseWheelRpmCancelThreshold = source.blockedReverseWheelRpmCancelThreshold;
+        responsiveBodyDriveAcceleration = source.responsiveBodyDriveAcceleration;
+        responsiveBodyDriveSpeedThreshold = source.responsiveBodyDriveSpeedThreshold;
+        responsiveBodyDriveVelocitySeed = source.responsiveBodyDriveVelocitySeed;
 
         Rigidbody sourceRb = source.CachedRigidbody != null ? source.CachedRigidbody : source.GetComponent<Rigidbody>();
         Rigidbody targetRb = CachedRigidbody != null ? CachedRigidbody : GetComponent<Rigidbody>();
@@ -716,12 +741,12 @@ public class SimpleCarController : MonoBehaviour
             Mathf.Sign(CurrentThrottleInput) != Mathf.Sign(CurrentForwardSpeed);
         if (isChangingDirection)
         {
-            motorTorque = 0f;
-            brakeTorque = Mathf.Max(brakeTorque, directionChangeBrakeTorque);
+            // 换向时反向油门必须立即作用；WheelCollider 的反向扭矩本身就会承担减速和反转。
+            // 不能再把 motorTorque 清零，否则玩家按着 S 会先经历几秒“只滑不加速”。
+            motorTorque *= Mathf.Max(1f, directionChangeDriveBoost);
         }
         else if (reverseLockTimer > 0f)
         {
-            motorTorque = 0f;
             brakeTorque = Mathf.Max(brakeTorque, stationaryReverseBrakeTorque);
         }
         if (isCoasting)
@@ -782,6 +807,39 @@ public class SimpleCarController : MonoBehaviour
 
             driveWheels[i].motorTorque = horizontalSpeed < maxSpeed ? motorTorque : 0f;
             driveWheels[i].brakeTorque = brakeTorque;
+        }
+    }
+
+    private void ApplyResponsiveBodyDriveAssist(float horizontalSpeed, bool brakePressed)
+    {
+        if (rb == null || brakePressed || Mathf.Abs(CurrentThrottleInput) < 0.01f)
+        {
+            return;
+        }
+
+        Vector3 desiredDirection = GetPlanarForward() * Mathf.Sign(CurrentThrottleInput);
+        if (desiredDirection.sqrMagnitude < 0.0001f)
+        {
+            return;
+        }
+
+        desiredDirection.Normalize();
+        Vector3 planarVelocity = Vector3.ProjectOnPlane(GetLinearVelocity(), Vector3.up);
+        float alongSpeed = Vector3.Dot(planarVelocity, desiredDirection);
+        bool lowSpeedOrBlocked = horizontalSpeed < responsiveBodyDriveSpeedThreshold;
+        bool movingAgainstInput = alongSpeed < -0.05f;
+        if (!lowSpeedOrBlocked && !movingAgainstInput)
+        {
+            return;
+        }
+
+        float speedFactor = 1f - Mathf.Clamp01(Mathf.Max(0f, alongSpeed) / Mathf.Max(responsiveBodyDriveSpeedThreshold, 0.01f));
+        float acceleration = responsiveBodyDriveAcceleration * Mathf.Max(0.25f, speedFactor);
+        rb.AddForce(desiredDirection * acceleration, ForceMode.Acceleration);
+
+        if (lowSpeedOrBlocked && alongSpeed < responsiveBodyDriveVelocitySeed)
+        {
+            EnsurePlanarSpeedAlong(rb, desiredDirection, responsiveBodyDriveVelocitySeed);
         }
     }
 
@@ -1109,6 +1167,8 @@ public class SimpleCarController : MonoBehaviour
             inactivePushAssistMaxTargetSpeed,
             Mathf.Max(pushSpeed, contactImmediateVelocitySeed));
 
+        ApplyContinuousContactPush(otherRb, ownPushDirection.normalized, targetPushDirection.normalized, seededPushSpeed);
+
         SimpleCarController otherController = otherRb.GetComponent<SimpleCarController>();
         if (otherController != null)
         {
@@ -1120,6 +1180,28 @@ public class SimpleCarController : MonoBehaviour
         {
             EnsurePlanarSpeedAlong(otherRb, targetPushDirection, seededPushSpeed);
         }
+    }
+
+    private void ApplyContinuousContactPush(Rigidbody otherRb, Vector3 ownPushDirection, Vector3 targetPushDirection, float seededPushSpeed)
+    {
+        if (otherRb == null || rb == null || contactPushAcceleration <= 0f)
+        {
+            return;
+        }
+
+        float throttle = Mathf.Abs(CurrentThrottleInput);
+        if (throttle < 0.01f)
+        {
+            return;
+        }
+
+        float acceleration = contactPushAcceleration * throttle;
+        otherRb.AddForce(targetPushDirection * acceleration, ForceMode.Acceleration);
+
+        float selfFollowSpeed = Mathf.Min(
+            contactPushSpeedThreshold,
+            Mathf.Max(contactMinimumPushSpeed, seededPushSpeed * Mathf.Clamp01(contactSelfFollowSpeedRatio)));
+        EnsurePlanarSpeedAlong(rb, ownPushDirection, selfFollowSpeed);
     }
 
     private void ApplyCollisionReverseAssist(Collision collision)
