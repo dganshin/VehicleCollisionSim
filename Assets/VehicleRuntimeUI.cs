@@ -273,6 +273,15 @@ public class VehicleRuntimeUI : MonoBehaviour
         changed |= DrawSlider(ref vehicle.responsiveBodyDriveVelocitySeed, "低速辅助速度种子", 0f, 3f, "m/s");
         changed |= DrawSlider(ref vehicle.minimumDrivenAcceleration, "前进最低加速度", 0f, 8f, "m/s²");
         changed |= DrawSlider(ref vehicle.minimumReverseAcceleration, "倒车最低加速度", 0f, 6f, "m/s²");
+        bool deterministicDrive = GUILayout.Toggle(vehicle.useDeterministicBodyDrive, "统一刚体驱动（四车一致）");
+        if (deterministicDrive != vehicle.useDeterministicBodyDrive)
+        {
+            vehicle.useDeterministicBodyDrive = deterministicDrive;
+            changed = true;
+        }
+        changed |= DrawSlider(ref vehicle.bodyForwardAcceleration, "统一前进加速度", 0f, 10f, "m/s²");
+        changed |= DrawSlider(ref vehicle.bodyReverseAcceleration, "统一倒车加速度", 0f, 8f, "m/s²");
+        changed |= DrawSlider(ref vehicle.bodySteeringAcceleration, "统一转向加速度", 0f, 8f, "m/s²");
         changed |= DrawSlider(ref vehicle.collisionReverseAssistBrakeTorque, "碰撞反向卸载刹车扭矩", 200f, 6000f, "Nm");
         changed |= DrawSlider(ref vehicle.collisionReverseAssistLockTime, "碰撞反向卸载时间", 0.01f, 0.2f, "s");
         changed |= DrawSlider(ref vehicle.drivingLinearDamping, "有油门阻尼", 0f, 0.5f, "");
