@@ -245,6 +245,7 @@ public class VehicleRuntimeUI : MonoBehaviour
         changed |= DrawSlider(ref vehicle.startBoostAcceleration, "起步辅助驱动力", 100f, 16000f, "N/torque");
         changed |= DrawSlider(ref vehicle.turnAcceleration, "基础转向强度", 0.5f, 8f, "");
         changed |= DrawSlider(ref vehicle.highSpeedTurnFactor, "高速转向系数", 0.1f, 1f, "");
+        changed |= DrawSlider(ref vehicle.lateralGrip, "横向抓地抑制", 0f, 35f, "");
         changed |= DrawSlider(ref vehicle.brakeDamping, "刹车阻尼/制动力", 0.5f, 12f, "");
         changed |= DrawSlider(ref vehicle.maxSpeed, "软速度上限", 5f, 120f, "m/s");
         changed |= DrawSlider(ref vehicle.wheelTorqueScale, "轮驱动扭矩倍率", 0.2f, 6f, "x");
@@ -338,6 +339,8 @@ public class VehicleRuntimeUI : MonoBehaviour
         changed |= DrawSlider(ref vehicle.inactiveLinearDamping, "非激活车线性阻尼", 0f, 0.5f, "");
         changed |= DrawSlider(ref vehicle.wheelDampingRateScale, "正常轮滚阻倍率", 0.05f, 1f, "x");
         changed |= DrawSlider(ref vehicle.inactiveWheelDampingRate, "非激活车轮滚动阻力", 0f, 0.5f, "");
+        changed |= DrawSlider(ref vehicle.controlledForwardFrictionStiffness, "受控车前后抓地力", 0.5f, 3f, "x");
+        changed |= DrawSlider(ref vehicle.controlledSidewaysFrictionStiffness, "受控车侧向抓地力", 0.5f, 4f, "x");
         changed |= DrawSlider(ref vehicle.inactiveForwardFrictionStiffness, "非激活车前后抓地力", 0.01f, 1f, "x");
         changed |= DrawSlider(ref vehicle.inactiveSidewaysFrictionStiffness, "非激活车侧向抓地力", 0.01f, 1f, "x");
         changed |= DrawSlider(ref vehicle.inactivePushAssistSpeed, "纵向推车单步上限", 0f, 10f, "m/s");

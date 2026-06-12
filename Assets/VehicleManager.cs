@@ -414,15 +414,7 @@ public class VehicleManager : MonoBehaviour
             return;
         }
 
-        SimpleCarController template = null;
-        for (int i = 0; i < vehicles.Length; i++)
-        {
-            if (vehicles[i] != null)
-            {
-                template = vehicles[i];
-                break;
-            }
-        }
+        SimpleCarController template = FindPrimaryTuningTemplate();
 
         if (template == null)
         {
@@ -448,7 +440,7 @@ public class VehicleManager : MonoBehaviour
             return;
         }
 
-        SimpleCarController template = CurrentVehicle;
+        SimpleCarController template = FindPrimaryTuningTemplate();
         if (template == null)
         {
             return;
@@ -461,8 +453,39 @@ public class VehicleManager : MonoBehaviour
                 continue;
             }
 
-            // 当前受控车辆就是调参模板：无论是 Inspector 改值还是运行时 UI 改值，其它车辆都会在下一帧跟上。
+            // Car1 是统一调参模板，避免切到 2/3/4 后把某辆车的旧参数反向扩散到全场。
             vehicles[i].CopyTuningFrom(template);
         }
+    }
+
+    private SimpleCarController FindPrimaryTuningTemplate()
+    {
+        if (vehicles == null || vehicles.Length == 0)
+        {
+            return null;
+        }
+
+        for (int i = 0; i < vehicles.Length; i++)
+        {
+            if (vehicles[i] != null && string.Equals(vehicles[i].name, "Car1", StringComparison.OrdinalIgnoreCase))
+            {
+                return vehicles[i];
+            }
+        }
+
+        if (CurrentVehicle != null)
+        {
+            return CurrentVehicle;
+        }
+
+        for (int i = 0; i < vehicles.Length; i++)
+        {
+            if (vehicles[i] != null)
+            {
+                return vehicles[i];
+            }
+        }
+
+        return null;
     }
 }

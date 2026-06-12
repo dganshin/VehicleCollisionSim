@@ -6,10 +6,12 @@ using System.IO;
 
 public class SimpleCarController : MonoBehaviour
 {
-    private const string CurrentBuildTagValue = "balanced_vehicle_drive_2026_06_12_v16";
+    private const string CurrentBuildTagValue = "unified_vehicle_drive_2026_06_12_v17";
     private const float CurrentMotorAccelerationValue = 6400f;
     private const float CurrentStartBoostAccelerationValue = 8400f;
     private const float CurrentWheelTorqueScaleValue = 1.4f;
+    private const float CurrentHighSpeedTurnFactorValue = 0.32f;
+    private const float CurrentLateralGripValue = 18f;
     private const float CurrentCoastingDecelerationLowSpeedValue = 0.24f;
     private const float CurrentCoastingDecelerationHighSpeedValue = 0.72f;
     private const float CurrentCoastingDecelerationBlendSpeedValue = 30f;
@@ -44,18 +46,20 @@ public class SimpleCarController : MonoBehaviour
     private const float CurrentDirectionChangeDriveBoostValue = 1.6f;
     private const float CurrentContactPushAccelerationValue = 18f;
     private const float CurrentContactSelfFollowSpeedRatioValue = 0.8f;
-    private const float CurrentMinimumDrivenAccelerationValue = 3.2f;
-    private const float CurrentMinimumReverseAccelerationValue = 2.2f;
+    private const float CurrentMinimumDrivenAccelerationValue = 6f;
+    private const float CurrentMinimumReverseAccelerationValue = 3.5f;
+    private const float CurrentControlledForwardFrictionStiffnessValue = 1.25f;
+    private const float CurrentControlledSidewaysFrictionStiffnessValue = 1.85f;
 
     public bool isControlled = false; // 当前这辆车是否接收玩家输入。
     public string debugBuildTag = CurrentBuildTagValue; // 仅用于在 Inspector 中确认当前场景实例是否真的吃到了这轮修改。
     public float motorAcceleration = 6400f; // 车辆已经滚起来之后的正常驱动力；本轮按用户要求直接翻倍。
     public float startBoostAcceleration = 8400f; // 低速起步时的额外驱动力；本轮按用户要求直接翻倍。
     public float turnAcceleration = 2.5f; // 基础转向强度；在轮驱动模式下会换算成前轮转角。
-    public float highSpeedTurnFactor = 0.45f; // 车速升高后用于削弱转向能力的系数。
+    public float highSpeedTurnFactor = 0.32f; // 车速升高后用于削弱转向能力的系数。
     public float brakeDamping = 4.5f; // 按下 Space 或需要快速收住车身时使用的附加阻尼/制动力度。
     public float maxSpeed = 72f; // 软速度上限，超过后不再继续施加额外驱动力或驱动扭矩。
-    public float lateralGrip = 8f; // 备用刚体驱动模式下用于抑制横向侧滑的力度。
+    public float lateralGrip = 18f; // 用于抑制横向侧滑的力度；轮驱动模式下也会参与，避免高速像开船一样横滑。
     public float minTurnSpeed = 2.5f; // 备用刚体驱动模式下，达到该前后速度后才允许明显转向。
     public float steerAngularDamping = 6f; // 备用刚体驱动模式下用于压制低速原地乱扭的偏航阻尼。
     public float flippedDotThreshold = 0.55f; // 车身朝上程度低于该阈值时，判定为翻车并停止驱动输入。
@@ -80,6 +84,8 @@ public class SimpleCarController : MonoBehaviour
     public float wheelDampingRateScale = 0.35f; // 当前主线车辆的轮子滚动阻力缩放，降低后可减少“松油马上被拖死”和碰撞后过快耗能。
     public float coastingWheelDampingScale = 1f; // 松油时驱动轮额外滚动阻力倍率；当前恢复为 1，避免轮子滚阻把滑行手感拖得像踩刹车。
     public float inactiveWheelDampingRate = 0.01f; // 非激活车辆轮子的滚动阻力，适度降低，避免像手刹锁死。
+    public float controlledForwardFrictionStiffness = 1.25f; // 当前受控车辆前后向轮胎抓地倍率，避免不同车辆有效驱动力差异太大。
+    public float controlledSidewaysFrictionStiffness = 1.85f; // 当前受控车辆侧向轮胎抓地倍率，用于削弱高速漂移和低速开船感。
     public float inactiveForwardFrictionStiffness = 0.08f; // 非激活车辆前后向轮胎抓地力倍率，低于默认值但不至于完全打滑。
     public float inactiveSidewaysFrictionStiffness = 0.35f; // 非激活车辆侧向轮胎抓地力倍率，保留明显侧向阻力，避免侧门轻易被推走。
     public float wheelTorqueScale = 1.4f; // 轮驱动模式下的扭矩倍率；小幅上调，让当前动力参数体感更直接。
@@ -268,6 +274,8 @@ public class SimpleCarController : MonoBehaviour
         motorAcceleration = CurrentMotorAccelerationValue;
         startBoostAcceleration = CurrentStartBoostAccelerationValue;
         wheelTorqueScale = CurrentWheelTorqueScaleValue;
+        highSpeedTurnFactor = CurrentHighSpeedTurnFactorValue;
+        lateralGrip = CurrentLateralGripValue;
         coastingDecelerationLowSpeed = CurrentCoastingDecelerationLowSpeedValue;
         coastingDecelerationHighSpeed = CurrentCoastingDecelerationHighSpeedValue;
         coastingDecelerationBlendSpeed = CurrentCoastingDecelerationBlendSpeedValue;
@@ -306,6 +314,8 @@ public class SimpleCarController : MonoBehaviour
         responsiveBodyDriveVelocitySeed = CurrentResponsiveBodyDriveVelocitySeedValue;
         minimumDrivenAcceleration = CurrentMinimumDrivenAccelerationValue;
         minimumReverseAcceleration = CurrentMinimumReverseAccelerationValue;
+        controlledForwardFrictionStiffness = CurrentControlledForwardFrictionStiffnessValue;
+        controlledSidewaysFrictionStiffness = CurrentControlledSidewaysFrictionStiffnessValue;
     }
 
     private void FixedUpdate()
@@ -412,6 +422,8 @@ public class SimpleCarController : MonoBehaviour
             ApplyWheelDrive(horizontalSpeed, brakePressed);
             ApplyResponsiveBodyDriveAssist(horizontalSpeed, brakePressed);
             ApplyMinimumDrivenAccelerationAssist(horizontalSpeed, brakePressed);
+            ApplyLateralGrip();
+            ApplySteerDamping(Mathf.Abs(CurrentForwardSpeed));
         }
         else
         {
@@ -589,6 +601,8 @@ public class SimpleCarController : MonoBehaviour
         wheelDampingRateScale = source.wheelDampingRateScale;
         inactiveLinearDamping = source.inactiveLinearDamping;
         inactiveWheelDampingRate = source.inactiveWheelDampingRate;
+        controlledForwardFrictionStiffness = source.controlledForwardFrictionStiffness;
+        controlledSidewaysFrictionStiffness = source.controlledSidewaysFrictionStiffness;
         inactiveForwardFrictionStiffness = source.inactiveForwardFrictionStiffness;
         inactiveSidewaysFrictionStiffness = source.inactiveSidewaysFrictionStiffness;
         wheelTorqueScale = source.wheelTorqueScale;
@@ -1480,8 +1494,16 @@ public class SimpleCarController : MonoBehaviour
             WheelFrictionCurve forward = defaultForwardFrictions[i];
             WheelFrictionCurve sideways = defaultSidewaysFrictions[i];
 
-            forward.stiffness = inactive ? defaultForwardFrictions[i].stiffness * inactiveForwardFrictionStiffness : defaultForwardFrictions[i].stiffness;
-            sideways.stiffness = inactive ? defaultSidewaysFrictions[i].stiffness * inactiveSidewaysFrictionStiffness : defaultSidewaysFrictions[i].stiffness;
+            if (inactive)
+            {
+                forward.stiffness = defaultForwardFrictions[i].stiffness * inactiveForwardFrictionStiffness;
+                sideways.stiffness = defaultSidewaysFrictions[i].stiffness * inactiveSidewaysFrictionStiffness;
+            }
+            else
+            {
+                forward.stiffness = defaultForwardFrictions[i].stiffness * controlledForwardFrictionStiffness;
+                sideways.stiffness = defaultSidewaysFrictions[i].stiffness * controlledSidewaysFrictionStiffness;
+            }
 
             wheel.forwardFriction = forward;
             wheel.sidewaysFriction = sideways;
