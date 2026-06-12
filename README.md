@@ -1,6 +1,8 @@
 # 基于 Unity 的车辆碰撞虚拟仿真与物理参数可视化系统
 
-本项目是车辆碰撞虚拟仿真课程设计项目，目标是在 Unity 中搭建一个可运行、可演示、可验证的车辆碰撞仿真系统。
+本项目是车辆碰撞虚拟仿真课程设计项目，目标是在 Unity 中搭建一个可运行、可演示、可验证的车辆碰撞仿真系统。当前版本已覆盖课程要求中的多车辆驱动、车辆与车辆碰撞、车辆与环境对象碰撞、运行时物理参数 UI 和基础物理量可视化。
+
+项目使用第三方免费车辆模型和城市地图资源，在此基础上完成 Unity 工程集成、车辆控制、多车管理、碰撞交互、参数 UI、相机控制、车轮视觉旋转、场景碰撞配置、测试树和复现文档。
 
 
 
@@ -8,13 +10,16 @@
 
 当前项目已经实现的核心功能包括：
 
-- 车辆基础驱动：前进、后退、转向、刹车。
-- 多车辆管理：支持运行时切换当前控制车辆。
-- 车辆与车辆碰撞：可演示车辆之间的基础物理碰撞。
+- 车辆基础驱动：前进、后退、转向、刹车，并针对开船感、低速卡顿、前后换向迟滞和抵墙/顶车反向响应进行了多轮优化。
+- 多车辆管理：当前场景配置 4 辆车，支持运行时切换当前控制车辆、复位当前车辆和复位全部车辆。
+- 车辆与车辆碰撞：可演示低速追尾、中速侧撞/斜撞、高速碰撞、静止目标车启动和贴车持续推车。
 - 车辆与环境对象碰撞：可与城市道路、马路牙子、人行道柱、桥梁、建筑、树木等对象发生物理碰撞。
 - 植物碰撞演示：场景中额外放置 3 棵 `CrashTestTree` 测试树，车辆撞击后可触发倒伏或位移效果。
 - 运行时参数面板：可查看并调节驱动力、刹车、阻尼、摩擦、质量、重心等常用物理参数。
 - 物理量可视化：显示速度、前向速度、估算加速度、估算纵向合力、质量、重力加速度、估算车长等读数。
+- 视角与视觉表现：支持第三人称相机跟随、鼠标绕车观察、车轮视觉旋转、白天/黑夜切换。
+- 资源兼容处理：完成车辆资源导入、车身材质/颜色处理，修复导入后粉紫色材质异常问题。
+- 文档和测试：整理了 README、测试用例、开发时间线和最终交付清单。
 
 
 
@@ -27,6 +32,7 @@
 | 操作系统 | Windows 11 |
 | Unity Hub | 建议安装 |
 | Unity Editor | `6000.3.10f1` |
+| Git LFS | 需要，用于下载模型、贴图和光照数据等大文件 |
 | 脚本 IDE | Visual Studio 2022 或 JetBrains Rider，非必须 |
 | 输入系统 | Unity Input System |
 | 渲染管线 | Universal Render Pipeline |
@@ -50,7 +56,19 @@ ProjectSettings/ProjectVersion.txt
 ```powershell
 git clone <仓库地址>
 cd VehicleCollisionSim
+git lfs install
+git lfs pull
 ```
+
+本项目包含 FBX、贴图、光照贴图、场景烘焙数据等较大的 Unity 资源，已通过 Git LFS 管理。首次克隆后必须执行 `git lfs pull`，否则 Unity 可能只能拿到 LFS 指针文件，导致模型、贴图、地图或光照数据缺失。
+
+如果本机没有安装 Git LFS，请先安装：
+
+```powershell
+git lfs version
+```
+
+如果该命令无法识别，请从 Git LFS 官方安装包或 Git for Windows 组件中安装后，再重新执行 `git lfs install` 和 `git lfs pull`。
 
 如果通过压缩包获取项目，请解压后进入项目根目录。项目根目录应包含以下关键目录：
 
@@ -59,7 +77,6 @@ Assets/
 Packages/
 ProjectSettings/
 README.md
-VehicleCollisionSim.sln
 ```
 
 
@@ -208,11 +225,12 @@ VehicleCollisionSim/
 ├─ ProjectSettings/
 │  └─ ProjectVersion.txt
 ├─ docs/
-│  ├─ ai_usage_log.md
 │  ├─ dev_timeline.md
 │  ├─ test_cases.md
 │  ├─ module_assignment.md
 │  └─ final_delivery_checklist.md
+├─ .gitattributes
+├─ .gitignore
 └─ README.md
 ```
 
@@ -237,6 +255,8 @@ VehicleCollisionSim/
 - 车辆资源：`ARCADE - FREE Racing Car`
 - 城市与高速环境：`Demo City By Versatile Studio`
 - 最终验收场景：`Assets/Scenes/CollisionTestScene.unity`
+
+车辆模型、贴图和城市地图来自第三方免费资源包。本项目在这些资源基础上完成车辆控制、碰撞交互、多车管理、UI 参数调节、相机体验、材质兼容、测试树和最终场景集成。
 
 当前推荐验收场景已经保存为 `Assets/Scenes/CollisionTestScene.unity`，打开项目后不需要手动运行 Tools 脚本。课程验收时建议重点展示车辆控制、车车碰撞、车辆与树木/桥梁/路沿等环境对象碰撞，以及运行时物理参数可视化。
 
@@ -298,21 +318,14 @@ CollisionTestObjects
 - 当前仅额外配置 3 棵可撞倒测试树用于“车辆与植物对象碰撞”演示。
 - 项目没有专门制作复杂材质、光线追踪或真实车损形变，展示重点是车辆动力学、碰撞和物理参数可视化。
 
-## 15. AI / Code Agent 使用说明
+## 15. 开发记录
 
-本项目允许并鼓励使用 AI / Code Agent 辅助开发。按照课程要求，AI 使用过程需要在 PPT 和结题报告中说明，避免被视为未说明的代写或作弊。
-
-当前 AI / Code Agent 主要用于：
-
-- 辅助排查 Unity 脚本和物理参数问题。
-- 生成和整理脚本初稿。
-- 辅助整理测试清单。
-- 辅助整理 README、PPT 和报告底稿。
-
-详细记录见：
+项目开发过程、测试用例和交付准备记录见：
 
 ```text
-docs/ai_usage_log.md
+docs/dev_timeline.md
+docs/test_cases.md
+docs/final_delivery_checklist.md
 ```
 
 ## 16. 最终提交前检查清单
@@ -327,4 +340,3 @@ docs/ai_usage_log.md
 - 3 棵 `CrashTestTree` 可以被车辆撞动或撞倒，且不会穿模或飞出地图。
 - `F2` 参数面板可以打开，参数调节和物理量显示可用。
 - 如果后续继续增删车辆，需要更新本 README 的车辆数量和切换按键说明。
-- PPT 和结题报告中写清楚 AI / Code Agent 的具体使用过程。
