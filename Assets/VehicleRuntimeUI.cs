@@ -270,6 +270,8 @@ public class VehicleRuntimeUI : MonoBehaviour
         changed |= DrawSlider(ref vehicle.responsiveBodyDriveAcceleration, "低速车身辅助驱动力", 0f, 50f, "m/s²");
         changed |= DrawSlider(ref vehicle.responsiveBodyDriveSpeedThreshold, "低速辅助速度阈值", 0.2f, 8f, "m/s");
         changed |= DrawSlider(ref vehicle.responsiveBodyDriveVelocitySeed, "低速辅助速度种子", 0f, 3f, "m/s");
+        changed |= DrawSlider(ref vehicle.minimumDrivenAcceleration, "前进最低加速度", 0f, 8f, "m/s²");
+        changed |= DrawSlider(ref vehicle.minimumReverseAcceleration, "倒车最低加速度", 0f, 6f, "m/s²");
         changed |= DrawSlider(ref vehicle.collisionReverseAssistBrakeTorque, "碰撞反向卸载刹车扭矩", 200f, 6000f, "Nm");
         changed |= DrawSlider(ref vehicle.collisionReverseAssistLockTime, "碰撞反向卸载时间", 0.01f, 0.2f, "s");
         changed |= DrawSlider(ref vehicle.drivingLinearDamping, "有油门阻尼", 0f, 0.5f, "");

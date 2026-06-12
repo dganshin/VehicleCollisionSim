@@ -6,7 +6,7 @@ using System.IO;
 
 public class SimpleCarController : MonoBehaviour
 {
-    private const string CurrentBuildTagValue = "responsive_drive_2026_06_12_v15";
+    private const string CurrentBuildTagValue = "balanced_vehicle_drive_2026_06_12_v16";
     private const float CurrentMotorAccelerationValue = 6400f;
     private const float CurrentStartBoostAccelerationValue = 8400f;
     private const float CurrentWheelTorqueScaleValue = 1.4f;
@@ -44,6 +44,8 @@ public class SimpleCarController : MonoBehaviour
     private const float CurrentDirectionChangeDriveBoostValue = 1.6f;
     private const float CurrentContactPushAccelerationValue = 18f;
     private const float CurrentContactSelfFollowSpeedRatioValue = 0.8f;
+    private const float CurrentMinimumDrivenAccelerationValue = 3.2f;
+    private const float CurrentMinimumReverseAccelerationValue = 2.2f;
 
     public bool isControlled = false; // 当前这辆车是否接收玩家输入。
     public string debugBuildTag = CurrentBuildTagValue; // 仅用于在 Inspector 中确认当前场景实例是否真的吃到了这轮修改。
@@ -130,6 +132,8 @@ public class SimpleCarController : MonoBehaviour
     public float responsiveBodyDriveAcceleration = 22f; // 低速或受阻时的车身辅助驱动力，让 W/S 输入不再完全受 WheelCollider 残余轮速支配。
     public float responsiveBodyDriveSpeedThreshold = 4f; // 低于该前后速度时启动车身辅助；覆盖抵墙、顶车和低速换向。
     public float responsiveBodyDriveVelocitySeed = 1.2f; // 低速/受阻时沿输入方向建立的最低速度，避免按反方向后等很久才动。
+    public float minimumDrivenAcceleration = 3.2f; // 受控车辆持续给油时至少应达到的前向加速度，补偿不同车实例 WheelCollider 有效驱动力差异。
+    public float minimumReverseAcceleration = 2.2f; // 受控车辆持续倒车时至少应达到的反向加速度，避免切到其它车后倒车明显无力。
 
     private Rigidbody rb;
     private WheelCollider[] cachedWheelColliders;
@@ -164,6 +168,8 @@ public class SimpleCarController : MonoBehaviour
     private string coastingAuditFilePath;
     private bool coastingAuditFileInitialized;
     private float lastCoastingPlanarSpeed = -1f;
+    private float previousForwardSpeedForDriveAssist;
+    private bool hasPreviousForwardSpeedForDriveAssist;
 
     public float CurrentSteerInput { get; private set; }
     public float CurrentThrottleInput { get; private set; }
@@ -265,6 +271,8 @@ public class SimpleCarController : MonoBehaviour
         coastingDecelerationLowSpeed = CurrentCoastingDecelerationLowSpeedValue;
         coastingDecelerationHighSpeed = CurrentCoastingDecelerationHighSpeedValue;
         coastingDecelerationBlendSpeed = CurrentCoastingDecelerationBlendSpeedValue;
+        debugCoastingAudit = false;
+        debugCoastingAuditWriteToFile = false;
         centerOfMassOffset.y = CurrentCenterOfMassYValue;
         runtimeAngularDamping = CurrentRuntimeAngularDampingValue;
         useInactiveCollisionTuning = CurrentUseInactiveCollisionTuningValue;
@@ -296,6 +304,8 @@ public class SimpleCarController : MonoBehaviour
         responsiveBodyDriveAcceleration = CurrentResponsiveBodyDriveAccelerationValue;
         responsiveBodyDriveSpeedThreshold = CurrentResponsiveBodyDriveSpeedThresholdValue;
         responsiveBodyDriveVelocitySeed = CurrentResponsiveBodyDriveVelocitySeedValue;
+        minimumDrivenAcceleration = CurrentMinimumDrivenAccelerationValue;
+        minimumReverseAcceleration = CurrentMinimumReverseAccelerationValue;
     }
 
     private void FixedUpdate()
@@ -328,6 +338,7 @@ public class SimpleCarController : MonoBehaviour
             ApplyNeutralCoastState(applyInactiveTuning);
             ApplyInactivePushAssist();
             ApplyCoastingBodyDeceleration(false);
+            hasPreviousForwardSpeedForDriveAssist = false;
             return;
         }
 
@@ -338,6 +349,7 @@ public class SimpleCarController : MonoBehaviour
             CurrentSteerInput = 0f;
             SetLinearDamping(normalDamping);
             ResetWheelDrive();
+            hasPreviousForwardSpeedForDriveAssist = false;
             return;
         }
 
@@ -387,6 +399,7 @@ public class SimpleCarController : MonoBehaviour
             CurrentThrottleInput = 0f;
             CurrentSteerInput = 0f;
             ResetWheelDrive();
+            hasPreviousForwardSpeedForDriveAssist = false;
             return;
         }
 
@@ -398,6 +411,7 @@ public class SimpleCarController : MonoBehaviour
             // 有现成轮子时，直接驱动轮子，比给整车硬推更接近车辆行为。
             ApplyWheelDrive(horizontalSpeed, brakePressed);
             ApplyResponsiveBodyDriveAssist(horizontalSpeed, brakePressed);
+            ApplyMinimumDrivenAccelerationAssist(horizontalSpeed, brakePressed);
         }
         else
         {
@@ -423,6 +437,8 @@ public class SimpleCarController : MonoBehaviour
 
         ApplyCoastingBodyDeceleration(brakePressed);
         EmitCoastingAudit(brakePressed, isCoastingInput);
+        previousForwardSpeedForDriveAssist = CurrentForwardSpeed;
+        hasPreviousForwardSpeedForDriveAssist = true;
     }
 
     private void Start()
@@ -466,6 +482,7 @@ public class SimpleCarController : MonoBehaviour
         pendingInactiveVelocityChange = Vector3.zero;
         inactivePushAssistTimer = 0f;
         lastCoastingPlanarSpeed = -1f;
+        hasPreviousForwardSpeedForDriveAssist = false;
 
         ApplyNeutralCoastState(useInactiveCollisionTuning);
         ResetCoastingAuditFrame();
@@ -622,6 +639,8 @@ public class SimpleCarController : MonoBehaviour
         responsiveBodyDriveAcceleration = source.responsiveBodyDriveAcceleration;
         responsiveBodyDriveSpeedThreshold = source.responsiveBodyDriveSpeedThreshold;
         responsiveBodyDriveVelocitySeed = source.responsiveBodyDriveVelocitySeed;
+        minimumDrivenAcceleration = source.minimumDrivenAcceleration;
+        minimumReverseAcceleration = source.minimumReverseAcceleration;
 
         Rigidbody sourceRb = source.CachedRigidbody != null ? source.CachedRigidbody : source.GetComponent<Rigidbody>();
         Rigidbody targetRb = CachedRigidbody != null ? CachedRigidbody : GetComponent<Rigidbody>();
@@ -841,6 +860,44 @@ public class SimpleCarController : MonoBehaviour
         {
             EnsurePlanarSpeedAlong(rb, desiredDirection, responsiveBodyDriveVelocitySeed);
         }
+    }
+
+    private void ApplyMinimumDrivenAccelerationAssist(float horizontalSpeed, bool brakePressed)
+    {
+        if (rb == null || brakePressed || Mathf.Abs(CurrentThrottleInput) < 0.01f || horizontalSpeed >= maxSpeed)
+        {
+            hasPreviousForwardSpeedForDriveAssist = false;
+            return;
+        }
+
+        Vector3 driveDirection = GetPlanarForward() * Mathf.Sign(CurrentThrottleInput);
+        if (driveDirection.sqrMagnitude < 0.0001f)
+        {
+            return;
+        }
+
+        driveDirection.Normalize();
+
+        if (!hasPreviousForwardSpeedForDriveAssist)
+        {
+            previousForwardSpeedForDriveAssist = CurrentForwardSpeed;
+            hasPreviousForwardSpeedForDriveAssist = true;
+            return;
+        }
+
+        float fixedDeltaTime = Mathf.Max(Time.fixedDeltaTime, 0.0001f);
+        float accelerationAlongInput = ((CurrentForwardSpeed - previousForwardSpeedForDriveAssist) / fixedDeltaTime) * Mathf.Sign(CurrentThrottleInput);
+        float baseTargetAcceleration = CurrentThrottleInput < 0f ? minimumReverseAcceleration : minimumDrivenAcceleration;
+        float speedFade = 1f - Mathf.Clamp01(horizontalSpeed / Mathf.Max(maxSpeed, 0.01f));
+        float targetAcceleration = Mathf.Max(0f, baseTargetAcceleration) * speedFade;
+        float accelerationDeficit = targetAcceleration - accelerationAlongInput;
+
+        if (accelerationDeficit <= 0.05f)
+        {
+            return;
+        }
+
+        rb.AddForce(driveDirection * accelerationDeficit, ForceMode.Acceleration);
     }
 
     private float GetAverageDriveWheelRpm()
