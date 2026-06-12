@@ -177,12 +177,6 @@ CollisionTestObjects
 10. 按 `F2` 打开参数面板，调整驱动力、刹车、阻尼、摩擦、质量等参数，观察车辆运动变化。
 11. 观察参数面板中的速度、前向速度、估算加速度、估算纵向合力、质量、重力加速度和估算车长等读数。
 
-更详细的测试用例见：
-
-```text
-docs/test_cases.md
-```
-
 ## 9. 课程要求对应关系
 
 | 课程要求 | 当前实现状态 |
@@ -224,11 +218,6 @@ VehicleCollisionSim/
 │  └─ manifest.json
 ├─ ProjectSettings/
 │  └─ ProjectVersion.txt
-├─ docs/
-│  ├─ dev_timeline.md
-│  ├─ test_cases.md
-│  ├─ module_assignment.md
-│  └─ final_delivery_checklist.md
 ├─ .gitattributes
 ├─ .gitignore
 └─ README.md
@@ -318,17 +307,7 @@ CollisionTestObjects
 - 当前仅额外配置 3 棵可撞倒测试树用于“车辆与植物对象碰撞”演示。
 - 项目没有专门制作复杂材质、光线追踪或真实车损形变，展示重点是车辆动力学、碰撞和物理参数可视化。
 
-## 15. 开发记录
-
-项目开发过程、测试用例和交付准备记录见：
-
-```text
-docs/dev_timeline.md
-docs/test_cases.md
-docs/final_delivery_checklist.md
-```
-
-## 16. 最终提交前检查清单
+## 15. 最终提交前检查清单
 
 提交前建议至少检查以下内容：
 

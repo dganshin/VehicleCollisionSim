@@ -43,6 +43,9 @@ UpgradeLog.htm
 !Assets/
 !Packages/
 !ProjectSettings/
-!docs/
 !*.md
-docs/coasting_audit_log.txt
+
+# Local-only planning / report notes
+docs/
+team_division.md
+_local_notes/
