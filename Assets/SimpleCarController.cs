@@ -6,7 +6,7 @@ using System.IO;
 
 public class SimpleCarController : MonoBehaviour
 {
-    private const string CurrentBuildTagValue = "deterministic_vehicle_drive_2026_06_12_v18";
+    private const string CurrentBuildTagValue = "unified_vehicle_drive_2026_06_12_v17";
     private const float CurrentMotorAccelerationValue = 6400f;
     private const float CurrentStartBoostAccelerationValue = 8400f;
     private const float CurrentWheelTorqueScaleValue = 1.4f;
@@ -50,10 +50,6 @@ public class SimpleCarController : MonoBehaviour
     private const float CurrentMinimumReverseAccelerationValue = 3.5f;
     private const float CurrentControlledForwardFrictionStiffnessValue = 1.25f;
     private const float CurrentControlledSidewaysFrictionStiffnessValue = 1.85f;
-    private const bool CurrentUseDeterministicBodyDriveValue = true;
-    private const float CurrentBodyForwardAccelerationValue = 5.6f;
-    private const float CurrentBodyReverseAccelerationValue = 3.6f;
-    private const float CurrentBodySteeringAccelerationValue = 3.4f;
 
     public bool isControlled = false; // 当前这辆车是否接收玩家输入。
     public string debugBuildTag = CurrentBuildTagValue; // 仅用于在 Inspector 中确认当前场景实例是否真的吃到了这轮修改。
@@ -144,10 +140,6 @@ public class SimpleCarController : MonoBehaviour
     public float responsiveBodyDriveVelocitySeed = 1.2f; // 低速/受阻时沿输入方向建立的最低速度，避免按反方向后等很久才动。
     public float minimumDrivenAcceleration = 3.2f; // 受控车辆持续给油时至少应达到的前向加速度，补偿不同车实例 WheelCollider 有效驱动力差异。
     public float minimumReverseAcceleration = 2.2f; // 受控车辆持续倒车时至少应达到的反向加速度，避免切到其它车后倒车明显无力。
-    public bool useDeterministicBodyDrive = true; // 主驱动统一走刚体速度积分，避免不同车的 WheelCollider 有效驱动力不一致。
-    public float bodyForwardAcceleration = 5.6f; // W 持续按下时所有车辆统一的前进加速度。
-    public float bodyReverseAcceleration = 3.6f; // S 持续按下时所有车辆统一的倒车加速度。
-    public float bodySteeringAcceleration = 3.4f; // A/D 转向时统一施加的车身偏航加速度，减少不同车轮胎转向差异。
 
     private Rigidbody rb;
     private WheelCollider[] cachedWheelColliders;
@@ -324,10 +316,6 @@ public class SimpleCarController : MonoBehaviour
         minimumReverseAcceleration = CurrentMinimumReverseAccelerationValue;
         controlledForwardFrictionStiffness = CurrentControlledForwardFrictionStiffnessValue;
         controlledSidewaysFrictionStiffness = CurrentControlledSidewaysFrictionStiffnessValue;
-        useDeterministicBodyDrive = CurrentUseDeterministicBodyDriveValue;
-        bodyForwardAcceleration = CurrentBodyForwardAccelerationValue;
-        bodyReverseAcceleration = CurrentBodyReverseAccelerationValue;
-        bodySteeringAcceleration = CurrentBodySteeringAccelerationValue;
     }
 
     private void FixedUpdate()
@@ -430,9 +418,10 @@ public class SimpleCarController : MonoBehaviour
         float horizontalSpeed = Vector3.ProjectOnPlane(GetLinearVelocity(), Vector3.up).magnitude;
         if (useWheelDrive)
         {
+            // 有现成轮子时，直接驱动轮子，比给整车硬推更接近车辆行为。
             ApplyWheelDrive(horizontalSpeed, brakePressed);
-            ApplyUnifiedBodyDrive(horizontalSpeed, brakePressed);
-            ApplyUnifiedBodySteering(horizontalSpeed);
+            ApplyResponsiveBodyDriveAssist(horizontalSpeed, brakePressed);
+            ApplyMinimumDrivenAccelerationAssist(horizontalSpeed, brakePressed);
             ApplyLateralGrip();
             ApplySteerDamping(Mathf.Abs(CurrentForwardSpeed));
         }
@@ -666,10 +655,6 @@ public class SimpleCarController : MonoBehaviour
         responsiveBodyDriveVelocitySeed = source.responsiveBodyDriveVelocitySeed;
         minimumDrivenAcceleration = source.minimumDrivenAcceleration;
         minimumReverseAcceleration = source.minimumReverseAcceleration;
-        useDeterministicBodyDrive = source.useDeterministicBodyDrive;
-        bodyForwardAcceleration = source.bodyForwardAcceleration;
-        bodyReverseAcceleration = source.bodyReverseAcceleration;
-        bodySteeringAcceleration = source.bodySteeringAcceleration;
 
         Rigidbody sourceRb = source.CachedRigidbody != null ? source.CachedRigidbody : source.GetComponent<Rigidbody>();
         Rigidbody targetRb = CachedRigidbody != null ? CachedRigidbody : GetComponent<Rigidbody>();
@@ -804,13 +789,6 @@ public class SimpleCarController : MonoBehaviour
             brakeTorque = 0f;
         }
 
-        if (useDeterministicBodyDrive)
-        {
-            // 主驱动力统一由刚体速度积分提供；WheelCollider 只保留接触、转向和制动。
-            // 否则 Car1 会额外吃到一份有效轮上驱动，而 2/3/4 因轮胎求解效率不同继续显得无力。
-            motorTorque = 0f;
-        }
-
         if (holdBrakeAtIdle && Mathf.Abs(CurrentThrottleInput) < 0.01f && absForwardSpeed < minTurnSpeed)
         {
             // 如需停车后更快收住，可打开该选项；当前默认关闭，避免出现“突然被踩一脚刹车”的感觉。
@@ -934,68 +912,6 @@ public class SimpleCarController : MonoBehaviour
         }
 
         rb.AddForce(driveDirection * accelerationDeficit, ForceMode.Acceleration);
-    }
-
-    private void ApplyUnifiedBodyDrive(float horizontalSpeed, bool brakePressed)
-    {
-        if (!useDeterministicBodyDrive)
-        {
-            ApplyResponsiveBodyDriveAssist(horizontalSpeed, brakePressed);
-            ApplyMinimumDrivenAccelerationAssist(horizontalSpeed, brakePressed);
-            return;
-        }
-
-        if (rb == null || brakePressed || Mathf.Abs(CurrentThrottleInput) < 0.01f || horizontalSpeed >= maxSpeed)
-        {
-            hasPreviousForwardSpeedForDriveAssist = false;
-            return;
-        }
-
-        Vector3 driveDirection = GetPlanarForward() * Mathf.Sign(CurrentThrottleInput);
-        if (driveDirection.sqrMagnitude < 0.0001f)
-        {
-            return;
-        }
-
-        driveDirection.Normalize();
-        float acceleration = CurrentThrottleInput > 0f ? bodyForwardAcceleration : bodyReverseAcceleration;
-        float speedFade = 1f - Mathf.Clamp01(horizontalSpeed / Mathf.Max(maxSpeed, 0.01f));
-        float targetAcceleration = Mathf.Max(0f, acceleration) * Mathf.Max(0.2f, speedFade);
-
-        Vector3 currentVelocity = GetLinearVelocity();
-        Vector3 planarVelocity = Vector3.ProjectOnPlane(currentVelocity, Vector3.up);
-        Vector3 verticalVelocity = Vector3.Project(currentVelocity, Vector3.up);
-        float currentAlongSpeed = Vector3.Dot(planarVelocity, driveDirection);
-        Vector3 lateralVelocity = planarVelocity - driveDirection * currentAlongSpeed;
-        float desiredAlongSpeed = currentAlongSpeed + targetAcceleration * Time.fixedDeltaTime;
-        Vector3 updatedPlanarVelocity = lateralVelocity + driveDirection * desiredAlongSpeed;
-
-#if UNITY_6000_0_OR_NEWER
-        rb.linearVelocity = updatedPlanarVelocity + verticalVelocity;
-#else
-        rb.velocity = updatedPlanarVelocity + verticalVelocity;
-#endif
-        rb.WakeUp();
-        hasPreviousForwardSpeedForDriveAssist = false;
-    }
-
-    private void ApplyUnifiedBodySteering(float horizontalSpeed)
-    {
-        if (!useDeterministicBodyDrive || rb == null || Mathf.Abs(CurrentSteerInput) < 0.01f)
-        {
-            return;
-        }
-
-        float absForwardSpeed = Mathf.Abs(CurrentForwardSpeed);
-        if (absForwardSpeed < minTurnSpeed)
-        {
-            return;
-        }
-
-        float speedFactor = Mathf.InverseLerp(minTurnSpeed, maxSpeed, absForwardSpeed);
-        float steeringStrength = bodySteeringAcceleration * Mathf.Lerp(1f, highSpeedTurnFactor, speedFactor);
-        float steeringDirection = CurrentForwardSpeed < -0.1f ? -1f : 1f;
-        rb.AddTorque(Vector3.up * CurrentSteerInput * steeringDirection * steeringStrength, ForceMode.Acceleration);
     }
 
     private float GetAverageDriveWheelRpm()
