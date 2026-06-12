@@ -91,8 +91,8 @@ public class SimpleCarController : MonoBehaviour
     public float lowSpeedCoastBrakeTorque = 0f; // 低速空挡尾速收口使用的小刹车扭矩；默认关闭，避免再次出现“低速突然一脚刹车”。
     public float directionChangeSpeedThreshold = 0.25f; // 当前进/后退方向与输入相反且速度高于该阈值时，先刹停再反向驱动；略降低，让低速反向更快进入新方向。
     public float directionChangeBrakeTorque = 2500f; // 换向阶段附加的刹车扭矩，用来避免先顺着旧方向多滑一截。
-    public float stationaryReverseRpmThreshold = 260f; // 车辆几乎没动但轮子仍在空转时，只有高于该阈值才强制刹轮，避免轻微残余轮速也把反向拖得很慢。
-    public float stationaryReverseBrakeTorque = 1800f; // 顶住障碍或另一辆车时，切换前后方向所用的额外刹车扭矩；适度减小，避免长时间像巨大飞轮一样拖住。
+    public float stationaryReverseRpmThreshold = 260f; // 旧调试参数保留；当前不再用驱动轮 rpm 阻塞 W/S 换向。
+    public float stationaryReverseBrakeTorque = 1800f; // 旧调试参数保留；当前碰撞换向优先直接给反向驱动，不再等待刹完旧轮速。
     public float stationaryReverseLockTime = 0.08f; // 静止受阻时前后换向的强制刹轮时间；缩短，让 W/S 切换更快进入新方向。
     public bool holdBrakeAtIdle = false; // 是否在几乎静止且无输入时自动补一点刹车，当前默认关闭以保留自然滑停。
     public bool applyLowFrictionMaterial = true; // 是否在运行时给车身碰撞体附加低摩擦材质。
@@ -112,7 +112,7 @@ public class SimpleCarController : MonoBehaviour
     public float contactPushSpeedThreshold = 18f; // 接触推车辅助允许的主车速度上限；覆盖中速碰撞展示。
     public float contactPushAlignmentThreshold = 0.2f; // 接触方向与车辆前后方向的对齐阈值；降低后斜向追尾也能触发。
     public float bumperZoneThreshold = 0.8f; // 接触点前后向占比阈值；降低后保险杠附近碰撞不易漏判。
-    public float collisionReverseAssistBrakeTorque = 2800f; // 顶住另一辆车时，如果用户已经在反向给油，用这段刹车快速卸掉旧轮速，减少“巨大飞轮效应”。
+    public float collisionReverseAssistBrakeTorque = 2800f; // 旧调试参数保留；当前碰撞换向不再靠刹旧轮速，而是直接施加反向驱动。
     public float collisionReverseAssistLockTime = 0.03f; // 碰撞状态下的反向辅助刹轮时间，比普通换向更短，只用于尽快把控制权交给新方向。
     public float collisionReverseBodyAssistAcceleration = 16f; // 碰撞态反向时，直接给车身一个小的反向加速度，避免必须等轮子先完全消掉旧扭矩才开始后退。
     public float collisionReverseBodyAssistSpeedThreshold = 3f; // 只有在较低前后速度下才启用碰撞态反向车身辅助，避免正常高速驾驶时被误触发。
@@ -714,12 +714,6 @@ public class SimpleCarController : MonoBehaviour
             Mathf.Abs(CurrentThrottleInput) > 0.01f &&
             absForwardSpeed > directionChangeSpeedThreshold &&
             Mathf.Sign(CurrentThrottleInput) != Mathf.Sign(CurrentForwardSpeed);
-        bool isReversingWheelSpinWhileBlocked =
-            Mathf.Abs(CurrentThrottleInput) > 0.01f &&
-            absForwardSpeed < 0.35f &&
-            Mathf.Abs(averageDriveWheelRpm) > stationaryReverseRpmThreshold &&
-            Mathf.Sign(CurrentThrottleInput) != Mathf.Sign(averageDriveWheelRpm);
-
         if (isChangingDirection)
         {
             motorTorque = 0f;
@@ -730,13 +724,6 @@ public class SimpleCarController : MonoBehaviour
             motorTorque = 0f;
             brakeTorque = Mathf.Max(brakeTorque, stationaryReverseBrakeTorque);
         }
-        else if (isReversingWheelSpinWhileBlocked)
-        {
-            // 车身几乎没动，但轮子还在按旧方向空转时，先强制减速旧轮速，同时给一点反向扭矩帮助尽快进入新方向。
-            motorTorque *= 0.35f;
-            brakeTorque = Mathf.Max(brakeTorque, stationaryReverseBrakeTorque);
-        }
-
         if (isCoasting)
         {
             // 滑行状态下不再使用任何轮上制动/反拖主线，避免脚刹感和平台速度。
@@ -1174,8 +1161,9 @@ public class SimpleCarController : MonoBehaviour
                 continue;
             }
 
-            driveWheels[i].motorTorque = 0f;
-            driveWheels[i].brakeTorque = Mathf.Max(driveWheels[i].brakeTorque, collisionReverseAssistBrakeTorque);
+            float directionScale = CurrentThrottleInput < 0f ? reverseAccelerationScale : 1f;
+            driveWheels[i].brakeTorque = 0f;
+            driveWheels[i].motorTorque = CurrentThrottleInput * startBoostAcceleration * wheelTorqueScale * directionScale;
         }
 
         if (Mathf.Abs(CurrentForwardSpeed) < collisionReverseBodyAssistSpeedThreshold)
