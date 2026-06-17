@@ -57,10 +57,12 @@ ProjectSettings/ProjectVersion.txt
 
 ## 4. 获取代码
 
+本仓库地址：[https://github.com/dganshin/VehicleCollisionSim.git](https://github.com/dganshin/VehicleCollisionSim.git)
+
 如果通过 Git 获取项目：
 
 ```powershell
-git clone <仓库地址>
+git clone https://github.com/dganshin/VehicleCollisionSim.git
 cd VehicleCollisionSim
 git lfs install
 git lfs pull
